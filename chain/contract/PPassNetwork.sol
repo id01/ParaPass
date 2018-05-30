@@ -49,4 +49,14 @@ contract PPassNetwork {
 		/* Get password */
 		return users[_uid].passwords[_aid];
 	}
+
+	/* Check whether an address is the owner of a uid */
+	function checkOwner(bytes32 _uid) public view returns (bool success) {
+		return (users[_uid].owner == msg.sender);
+	}
+
+	/* Check whether you are connected to a PPassNetwork */
+	function checkPPassNetworkState() public pure returns (bool success) {
+		return true;
+	}
 }

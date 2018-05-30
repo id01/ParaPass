@@ -462,7 +462,7 @@ static PyObject* crypto_blake2b(PyObject *self, PyObject *args) {
 
 	// Hash using blake2
 	byte* output = (byte*)malloc(digest_len);
-	CryptoPP::BLAKE2b(false, digest_len).CalculateDigest(output, (const byte*)"asdf", 4);
+	CryptoPP::BLAKE2b(false, digest_len).CalculateDigest(output, tohash, tohash_len);
 
 	// Return
 	return PyBytes_FromStringAndSize((const char*)output, digest_len);
