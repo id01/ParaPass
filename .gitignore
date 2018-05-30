@@ -1,0 +1,6 @@
+chain/contract/target
+chain/contract/ppass.js
+chain/mychain
+client/cpp/crypto.so
+client/cpp/libs/argon2/*
+client/cpp/libs/scrypt-jane/*

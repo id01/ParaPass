@@ -1,0 +1,23 @@
+- C++ (Crypto++, Scrypt-Jane, Argon2id), Python (Web3.py, Qt, pystray) client for cryptographic operations.
+- Ethereum private key generated on client.
+- Master key is password hashed with two KDFs. Username hash used as salt.
+	- One thread hashes with a single run of Scrypt-18-4-0 (64 bytes).
+	- One thread hashes with a single run of Argon2id-8-18-1 (64 bytes).
+	- The two results are then concatenated together and hashed using BLAKE2b.
+- Store private key either in plaintext in localStorage or encrypted using master key.
+	- Users may export their private keys in plaintext or encrypted using thier master key.
+	- If this is lost, people can still recover their passwords if they remember their master password.
+- Quadruple encryption algorithm.
+	- Uses 24-byte nonce with Serpent-CTR over Twofish-CFB over AES-CBC over XSalsa20-Poly1305.
+	- Algorithm is
+		[16 byte seed] [24 byte nonce] [XSalsa20 Plaintext Padded] (is exactly 160 bytes with HMAC appended)
+		-> [16 byte seed] [16 byte nonce] [AES-CBC Plaintext]
+		-> [16 byte seed] [16 byte nonce] [Twofish-CFB Plaintext]
+		-> [16 byte seed] [16 byte nonce] [Serpent-CTR Plaintext]
+		Note: Because we are using different algorithms, it's okay for us to reuse a nonce
+		Another note: Seed is there to run sha512 with master key. EG encryptionKey = sha512(masterkey || seed)
+- Encrypt password to 160-byte string using sha512 master key, but don't sign it using nacl.
+	- Just upload it to smart contract function directly (signed using ethereum key).
+- Cryptographic operations should be wrapped in high-level C++ functions, while UI and OS work should be done in Python
+- Client accessible from system tray icon on both Windows and Linux
+- Client depends on eth web3

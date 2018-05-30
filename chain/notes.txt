@@ -1,0 +1,39 @@
+Init:
+geth --datadir ./mychain/ init genesis.json
+
+Run:
+geth --unlock=82abc33cc983ce46602c7af14ef81f1791354163 --nodiscover --maxpeers 0 --rpc --datadir ./mychain/ console
+
+Mine:
+> miner.start(1)
+
+Compile:
+echo "var ppass=`solc --optimize --combined-json abi,bin,interface PPassNetwork.sol`" > ppass.js
+
+Create new contract:
+> web3.eth.defaultAccount = web3.eth.accounts[0];
+> loadScript("contract/ppass.js");
+> var ppassCreator = web3.eth.contract(JSON.parse(ppass.contracts["PPassNetwork.sol:PPassNetwork"].abi));
+> var ppassNetwork = ppassCreator.new({ from: eth.accounts[0], data: "0x" + ppass.contracts["PPassNetwork.sol:PPassNetwork"].bin, gas: 5000000},
+	function (e, contract) {
+		console.log(e, contract);
+		if (typeof contract.address !== 'undefined') {
+			console.log('Contract mined! address: ' + contract.address + ' transactionHash: ' + contract.transactionHash);
+		}
+	}
+);
+
+Retrieve contract:
+> web3.eth.defaultAccount = web3.eth.accounts[0];
+> loadScript("contract/ppass.js");
+> var ppassCreator = web3.eth.contract(JSON.parse(ppass.contracts["PPassNetwork.sol:PPassNetwork"].abi));
+> var ppassNetwork = ppassCreator.at('0x???????');
+
+Run functions:
+> ppassNetwork.function(arg1, arg2 ...)
+
+Get password log:
+> ppassNetwork.changedPassword({}, { fromBlock: 0, toBlock: 'latest' }).get()
+
+Filter password log:
+> ppassNetwork.changedPassword({uid: 1, aid: 1}, { fromBlock: 0, toBlock: 'latest' }).get()
