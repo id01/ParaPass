@@ -9,6 +9,7 @@ contract PPassNetwork {
 	/* This is a struct for a single user */
 	struct User {
 		address owner; // Owner of this user account
+		bytes8 passhash; // Collisions actually help us here. Increases complexity for the attacker with low chance of happening for the user.
 		mapping (bytes16 => bytes) passwords; // Mapping from account hash to password
 	}
 
@@ -21,11 +22,12 @@ contract PPassNetwork {
 	}
 
 	/* Add User. */
-	function addUser(bytes32 _uid) public returns (bool success) {
+	function addUser(bytes32 _uid, bytes8 _pwhash) public returns (bool success) {
 		/* Make sure that UID is not taken */
 		require(users[_uid].owner == 0);
-		/* Claim UID in the user mapping and return success */
+		/* Claim UID in the user mapping, copy over pwhash, and return success */
 		users[_uid].owner = msg.sender;
+		users[_uid].passhash = _pwhash;
 		return true;
 	}
 
@@ -46,13 +48,12 @@ contract PPassNetwork {
 
 	/* Get Password */
 	function getPassword(bytes32 _uid, bytes16 _aid) public view returns (bytes pass) {
-		/* Get password */
 		return users[_uid].passwords[_aid];
 	}
 
-	/* Check whether an address is the owner of a uid */
-	function checkOwner(bytes32 _uid) public view returns (bool success) {
-		return (users[_uid].owner == msg.sender);
+	/* Check whether an address is the owner of a uid and has the right password hash */
+	function checkLogin(bytes32 _uid, bytes8 _pwhash) public view returns (bool success) {
+		return (users[_uid].owner == msg.sender && users[_uid].passhash == _pwhash);
 	}
 
 	/* Check whether you are connected to a PPassNetwork */
