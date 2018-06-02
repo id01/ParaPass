@@ -1,27 +1,4 @@
-// Standard libs
-#include <stdlib.h>
-#include <string.h>
-#include <pthread.h>
-
-// CryptoPP Algorithms
-#include <cryptopp/aes.h>
-#include <cryptopp/twofish.h>
-#include <cryptopp/serpent.h>
-#include <cryptopp/ccm.h>
-#include <cryptopp/salsa.h>
-#include <cryptopp/poly1305.h>
-#include <cryptopp/blake2.h>
-#include <cryptopp/sha.h>
-#include <cryptopp/osrng.h>
-#include <cryptopp/filters.h>
-#include <cryptopp/cryptlib.h>
-
-// Custom libs (kdfs)
-#include "libs/scrypt-jane/scrypt-jane.h"
-#include "libs/argon2/include/argon2.h"
-
-// Let's make "unsigned char" less long
-typedef unsigned char byte;
+#include "crypto.h"
 
 /**** UTILITY FUNCTIONS ****/
 void wipe(byte* ptr, size_t ptr_len) {
@@ -38,10 +15,6 @@ void secureFree(byte** ptrptr, size_t ptr_len) {
 }
 
 /**** COMPRESSION FUNCTIONS ****/
-
-// Get compressed/decompressed length with z827. Note that this is equivalent to Math.ceil(plain_len*7/8) and compressed_len*8/7
-#define z827_compressed_len(plain_len) ((plain_len+1)*7/8)
-#define z827_decompressed_len(compressed_len) (compressed_len*8/7)
 
 // Compresses an array in z827. We assume we have a valid compressed length.
 void z827_compress(const char* plain, const size_t plain_len, byte* compressed) {
@@ -60,22 +33,11 @@ void z827_decompress(const byte* compressed, const size_t compressed_len, char* 
 	plain[0] = compressed[0] & 0x7F;
 	// Loop through our indexes
 	for (size_t i=1; i<z827_decompressed_len(compressed_len); i++) {
-		plain[i] = (compressed[z827_compressed_len(i)-1] >> (8-i%8)) | (compressed[z827_compressed_len(i)] << (i%8)) & 0x7F;
+		plain[i] = (compressed[z827_compressed_len(i)-1] >> (8-i%8)) | ((compressed[z827_compressed_len(i)] << (i%8)) & 0x7F);
 	}
 }
 
 /**** SERIALIZATION FUNCTIONS ****/
-
-#define ACCOUNTNAMEMAXLEN 46
-#define PASSWORDCOMPRESSEDMAXLEN 56
-#define PASSWORDMAXLEN (PASSWORDCOMPRESSEDMAXLEN*8/7)
-
-struct accountname_and_password {
-	byte* accname;
-	size_t accname_len;
-	char* password;
-	size_t password_len;
-};
 
 // Generates a plaintext from account name and password. Plaintext must be PLAINTEXTLEN, and accname and password must be below their maximum lengths.
 // Note that padding is not included in ACCOUNTNAMEMAXLEN or PASSWORDMAXLEN, so we have to add 1 to the maximum to get the padded length.
@@ -135,19 +97,6 @@ struct accountname_and_password deserializePlaintext(const byte* plaintext) {
 }
 
 /**** SYMMETRIC QUADRUPLE ENCRYPTION FUNCTIONS ****/
-
-#define SEEDLEN 16
-#define NONCELEN 24
-#define IVLEN 16
-#define HMACLEN 16
-#define CIPHERTEXTLEN 160
-#define CIPHERTEXTWITHOUTSEEDLEN (CIPHERTEXTLEN-SEEDLEN)
-#define BLOCKTEXTLEN (CIPHERTEXTWITHOUTSEEDLEN-IVLEN)
-#define MASTERKEYLEN 64
-#define LOCALKEYLEN 32
-#define PLAINTEXTLEN (CIPHERTEXTLEN-SEEDLEN-NONCELEN-HMACLEN) // Note: This must be less than 256 for padding to work
-// Plaintext is [47-byte account name, after padding] [57-byte compressed password, after padding]
-// Ciphertext is [16 byte seed] [24 byte nonce] [plaintext encrypted] [16 byte hmac]
 
 // Encrypts a plaintext using a master key. Plaintext must be PLAINTEXTLEN, output must be CIPHERTEXTLEN
 void encrypt(const byte* plaintext, const byte* masterkey, byte* output) {
@@ -362,9 +311,6 @@ bool decrypt(const byte* ciphertext, const byte* masterkey, byte* output) {
 
 /**** HASHING FUNCTIONS ****/
 
-#define HASH_PART_LEN 64
-#define NUM_HASHES 2
-#define HASH_FULL_LEN (HASH_PART_LEN*NUM_HASHES)
 // Hash is blake(scrypt(k) || argon2(k))
 // Credential struct for hashing functions (we need this for pthread)
 struct credentials {
@@ -418,21 +364,10 @@ bool double_hash(const char* pass, const size_t pass_len, const byte* salt, cons
 		return false;
 	}
 
-	// Hash wtih BLAKE2 (of length MASTERKEYLEN) 16384 times
-	byte* blake2_input = (byte*)malloc(HASH_FULL_LEN);
-	byte* blake2_output = (byte*)malloc(HASH_FULL_LEN);
-	memcpy(blake2_input, hashes, HASH_FULL_LEN);
-	for (int i=0; i<16384; i++) {
-		CryptoPP::BLAKE2b(false, HASH_FULL_LEN).CalculateDigest(blake2_output, blake2_input, HASH_FULL_LEN);
-		memcpy(blake2_input, blake2_output, HASH_FULL_LEN);
-	}
-
 	// Hash one final time to decrease length
-	CryptoPP::BLAKE2b(false, MASTERKEYLEN).CalculateDigest(out, blake2_output, HASH_FULL_LEN);
+	CryptoPP::BLAKE2b(false, MASTERKEYLEN).CalculateDigest(out, hashes, HASH_FULL_LEN);
 	// Free everything and return
 	secureFree(&hashes, HASH_FULL_LEN);
-	secureFree(&blake2_input, HASH_FULL_LEN);
-	secureFree(&blake2_output, HASH_FULL_LEN);
 	return true;
 }
 
@@ -442,7 +377,6 @@ int main() {
 	// Test params
 	const byte accname[] = "asdfasdg";
 	const char password[] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-	const char masterpass[] = "somepassword";
 	const byte username[] = "someuser1123";
 	// KDF
 	puts("Running KDF...");
@@ -465,194 +399,9 @@ int main() {
 	byte* recovered = (byte*)malloc(PLAINTEXTLEN);
 	if (decrypt(ct, key, recovered)) {
 		struct accountname_and_password stuff = deserializePlaintext(recovered);
-		printf("%.*s:%.*s\n", stuff.accname_len, stuff.accname, stuff.password_len, stuff.password);
+		printf("%.*s:%.*s\n", (int)stuff.accname_len, stuff.accname, (int)stuff.password_len, stuff.password);
 	} else {
 		puts("Invalid HMAC");
 	}
-}
-#else
-// Python module
-// Python headers
-#include <python3.6m/Python.h>
-
-// Exceptions
-static PyObject *HMACError;
-
-// Generates blake2b hash (username hash is 32 byte blake2, account hash is 16 byte blake2)
-static PyObject* crypto_blake2b(PyObject *self, PyObject *args) {
-	// Get args
-	const byte* tohash; uint32_t tohash_len, digest_len;
-	if (!PyArg_ParseTuple(args, "s#i", &tohash, &tohash_len, &digest_len)) return NULL;
-
-	// Hash using blake2
-	byte* output = (byte*)PyMem_Malloc(digest_len);
-	CryptoPP::BLAKE2b(false, digest_len).CalculateDigest(output, tohash, tohash_len);
-
-	// Return
-	return PyBytes_FromStringAndSize((const char*)output, digest_len);
-}
-
-// Wipes a master key capsule
-void wipe_master_key(PyObject* capsule) {
-	wipe((byte*)PyCapsule_GetPointer(capsule, NULL), MASTERKEYLEN);
-}
-
-// Generates key from password and username hash
-static PyObject* crypto_generate_key(PyObject *self, PyObject *args) {
-	// Get args
-	const char *password, *userhash;
-	uint32_t password_len, userhash_len;
-	if (!PyArg_ParseTuple(args, "s#s#", &password, &password_len, &userhash, &userhash_len)) return NULL;
-
-	// Run double hash function
-	byte* generated_key = (byte*)PyMem_Malloc(MASTERKEYLEN);
-	if (!double_hash(password, password_len, (const byte*)userhash, userhash_len, generated_key)) {
-		PyErr_SetString(PyExc_ValueError, "Failed to open pthread");
-		return NULL;
-	}
-
-	// Return capsule containing generated master key
-	return PyCapsule_New(generated_key, NULL, wipe_master_key);
-}
-
-// Generates master key hash from master key
-#define PWHASHLEN 8
-static PyObject* crypto_hash_master_key(PyObject *self, PyObject *args) {
-	// Get arguments
-	PyObject* capsule;
-	if (!PyArg_ParseTuple(args, "O", &capsule)) return NULL;
-	const byte* masterkey = (byte*)PyCapsule_GetPointer(capsule, NULL);
-
-	// Check if masterkey exists
-	if (masterkey == NULL) return NULL;
-
-	// Hash master key
-	// Hash master key with BLAKE2 (of length MASTERKEYLEN) 4096 times (this is to make complexity for the attacker to verify a password greater)
-	byte* blake2_input = (byte*)malloc(MASTERKEYLEN);
-	byte* blake2_output = (byte*)malloc(MASTERKEYLEN);
-	memcpy(blake2_input, masterkey, MASTERKEYLEN);
-	for (int i=0; i<4096; i++) {
-		CryptoPP::BLAKE2b(false, MASTERKEYLEN).CalculateDigest(blake2_output, blake2_input, MASTERKEYLEN);
-		memcpy(blake2_input, blake2_output, MASTERKEYLEN);
-	}
-	// Hash one last time to decrease length
-	byte* output = (byte*)PyMem_Malloc(PWHASHLEN);
-	CryptoPP::BLAKE2b(false, PWHASHLEN).CalculateDigest(output, blake2_output, MASTERKEYLEN);
-
-	// Free everything and return
-	secureFree(&blake2_input, MASTERKEYLEN);
-	secureFree(&blake2_output, MASTERKEYLEN);
-	return PyBytes_FromStringAndSize((const char*)output, PWHASHLEN);
-}
-
-// Encrypts account name and password using master key
-static PyObject* crypto_encrypt(PyObject *self, PyObject *args) {
-	// Get arguments
-	PyObject* capsule;
-	const char *accountname, *password;
-	uint32_t accountname_len, password_len;
-	if (!PyArg_ParseTuple(args, "Os#s#", &capsule, &accountname, &accountname_len, &password, &password_len)) return NULL;
-	const byte* masterkey = (byte*)PyCapsule_GetPointer(capsule, NULL);
-
-	// Check if masterkey exists
-	if (masterkey == NULL) return NULL;
-	// Check if accountname_len and password_len are valid. Note that because these are unsigned, negative numbers will wrap to huge positives.
-	if (accountname_len > ACCOUNTNAMEMAXLEN || password_len > PASSWORDMAXLEN || accountname_len == 0 || password_len == 0) {
-		PyErr_SetString(PyExc_ValueError, "Account name or password out of size range");
-		return NULL;
-	}
-
-	// Run padding and encryption
-	byte* plaintext = (byte*)malloc(PLAINTEXTLEN);
-	generatePlaintext((const byte*)accountname, accountname_len, password, password_len, plaintext);
-	byte* ct = (byte*)PyMem_Malloc(CIPHERTEXTLEN);
-	encrypt(plaintext, masterkey, ct);
-
-	// Free plaintext and return ciphertext
-	secureFree(&plaintext, PLAINTEXTLEN);
-	return PyBytes_FromStringAndSize((const char*)ct, CIPHERTEXTLEN);
-}
-
-// Decrypts account name and password using master key
-static PyObject* crypto_decrypt(PyObject *self, PyObject *args) {
-	// Get arguments
-	PyObject* capsule;
-	const byte *ciphertext;
-	uint32_t ciphertext_len;
-	if (!PyArg_ParseTuple(args, "Oy#", &capsule, &ciphertext, &ciphertext_len)) return NULL;
-	const byte* masterkey = (byte*)PyCapsule_GetPointer(capsule, NULL);
-
-	// Check if masterkey exists
-	if (masterkey == NULL) return NULL;
-	// Check if ciphertext length is valid
-	if (ciphertext_len != CIPHERTEXTLEN) {
-		PyErr_SetString(PyExc_ValueError, "Ciphertext length invalid");
-	}
-
-	// Run decryption
-	byte* plaintext = (byte*)malloc(PLAINTEXTLEN);
-	if (!decrypt(ciphertext, masterkey, plaintext)) {
-		PyErr_SetString(HMACError, "HMAC Invalid");
-		return NULL; // HMAC invalid
-	}
-
-	// Run deserialization and copy over to PyMem buffers
-	struct accountname_and_password accnpass = deserializePlaintext(plaintext);
-	byte* accname = (byte*)PyMem_Malloc(accnpass.accname_len);
-	byte* password = (byte*)PyMem_Malloc(accnpass.password_len);
-	memcpy(accname, accnpass.accname, accnpass.accname_len);
-	memcpy(password, accnpass.password, accnpass.password_len);
-
-	// Free plaintext and accnpass pointers and return PyMem account name and password
-	secureFree(&plaintext, PLAINTEXTLEN);
-	secureFree(&(accnpass.accname), accnpass.accname_len);
-	secureFree((byte**)&(accnpass.password), accnpass.password_len);
-	return Py_BuildValue("s#s#", accname, accnpass.accname_len, password, accnpass.password_len);
-}
-
-// Python module and method metadata
-static PyMethodDef crypto_methods[] = {
-	{"blake2b", crypto_blake2b, METH_VARARGS, "Run Blake2b hash function. Usage: blake2b(something, digestlength), returns digest bytes"},
-	{"generateKey", crypto_generate_key, METH_VARARGS, "Generate a master key. Usage: generateKey(password, userhash), returns master key object"},
-	{"encrypt", crypto_encrypt, METH_VARARGS, "Encrypt an account name and password. Usage: encrypt(masterkey, accname, pass), returns ciphertext bytes"},
-	{"decrypt", crypto_decrypt, METH_VARARGS, "Decrypt a ciphertext. Usage: decrypt(masterkey, ciphertext), returns (accname, pass)"},
-	{"hashMasterKey", crypto_hash_master_key, METH_VARARGS, "Hash a master key. Usage: hashMasterKey(masterkey), returns masterkeyhash bytes"},
-	{NULL, NULL, 0, NULL}
-};
-static struct PyModuleDef crypto_module = {
-	PyModuleDef_HEAD_INIT,
-	"crypto",
-	NULL,
-	-1,
-	crypto_methods
-};
-
-// Init functions
-PyMODINIT_FUNC PyInit_crypto() {
-	// Create module
-	PyObject *m;
-	m = PyModule_Create(&crypto_module);
-	if (m == NULL) return NULL;
-
-	// Create HMAC exception
-	HMACError = PyErr_NewException("crypto.HMACError", NULL, NULL);
-	Py_INCREF(HMACError);
-	PyModule_AddObject(m, "error", HMACError);
-
-	// Return
-	return m;
-}
-int main(int argc, char* argv[]) {
-	wchar_t *program = Py_DecodeLocale(argv[0], NULL);
-	if (program == NULL) {
-		fprintf(stderr, "Cannot decode argv[0]\n");
-		exit(1);
-	}
-	PyImport_AppendInittab("crypto", PyInit_crypto);
-	Py_SetProgramName(program);
-	Py_Initialize();
-	PyImport_ImportModule("crypto");
-	PyMem_RawFree(program);
-	return 0;
 }
 #endif

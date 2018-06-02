@@ -21,7 +21,7 @@ contract PPassNetwork {
 	constructor() public {
 	}
 
-	/* Add User. */
+	/* Add a user to the contract */
 	function addUser(bytes32 _uid, bytes8 _pwhash) public returns (bool success) {
 		/* Make sure that UID is not taken */
 		require(users[_uid].owner == 0);
@@ -29,6 +29,15 @@ contract PPassNetwork {
 		users[_uid].owner = msg.sender;
 		users[_uid].passhash = _pwhash;
 		return true;
+	}
+
+	/* Checks whether a uid is free (not taken) */
+	function checkUserFree(bytes32 _uid) public view returns (bool free) {
+		if (users[_uid].owner == 0) {
+			return true;
+		} else {
+			return false;
+		}
 	}
 
 	/* Put Password */
@@ -56,8 +65,8 @@ contract PPassNetwork {
 		return (users[_uid].owner == msg.sender && users[_uid].passhash == _pwhash);
 	}
 
-	/* Check whether you are connected to a PPassNetwork */
-	function checkPPassNetworkState() public pure returns (bool success) {
-		return true;
+	/* Get PPassNetwork version */
+	function getPPassNetworkVersion() public pure returns (int32 success) {
+		return 0;
 	}
 }

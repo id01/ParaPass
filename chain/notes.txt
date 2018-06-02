@@ -1,14 +1,18 @@
 Init:
-geth --datadir ./mychain/ init genesis.json
+geth --networkid 99455 --nodiscover --maxpeers 0 --datadir ./mychain/ init genesis.json
 
 Run:
-geth --unlock=82abc33cc983ce46602c7af14ef81f1791354163 --nodiscover --maxpeers 0 --rpc --datadir ./mychain/ console
+geth --unlock=dfa712b4e9dc3798c5108f80fd1963ac62b84d8c --networkid 99455 --nodiscover --maxpeers 0 --rpc --datadir ./mychain/ console
 
 Mine:
 > miner.start(1)
 
-Compile:
+Compile to geth:
 echo "var ppass=`solc --optimize --combined-json abi,bin,interface PPassNetwork.sol`" > ppass.js
+
+Compile to java:
+solc --optimize --abi --bin -o target PPassNetwork.sol
+web3j solidity generate target/PPassNetwork.bin target/PPassNetwork.abi -p one.id0.ppass -o <something>
 
 Create new contract:
 > web3.eth.defaultAccount = web3.eth.accounts[0];

@@ -1,1 +1,0 @@
-../chain/contract/PPassNetwork.sol
