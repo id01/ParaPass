@@ -55,6 +55,14 @@ JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_Crypto_encryptAccountPassword
 JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_Crypto_decryptAccountPassword
   (JNIEnv *, jobject, jbyteArray, jbyteArray);
 
+/*
+ * Class:     one_id0_ppass_Crypto
+ * Method:    generateRandomPasswordRaw
+ * Signature: ([BI)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_Crypto_generateRandomPasswordRaw
+  (JNIEnv *, jobject, jbyteArray, jint);
+
 #ifdef __cplusplus
 }
 #endif

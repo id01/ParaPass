@@ -140,3 +140,25 @@ JNIEXPORT jbyteArray Java_one_id0_ppass_Crypto_decryptAccountPassword(JNIEnv *en
 	secureFree((byte**)&(accnpass.password), accnpass.password_len);
 	return output;
 }
+
+// Generates random password
+JNIEXPORT jbyteArray Java_one_id0_ppass_Crypto_generateRandomPasswordRaw(JNIEnv *env, jobject obj, jbyteArray javaCharlist, jint length) {
+	// Get args
+	size_t charlist_len = env->GetArrayLength(javaCharlist);
+	byte* charlist = (byte*)malloc(charlist_len);
+	env->GetByteArrayRegion(javaCharlist, 0, charlist_len, reinterpret_cast<jbyte*>(charlist));
+
+	// Password buffer, PRNG and PRNG output buffer
+	byte* password = (byte*)malloc((uint32_t)length);
+	CryptoPP::AutoSeededRandomPool rng;
+
+	// Get randomly generated password bytes. Note that GenerateWord32 is inclusive.
+	for (int i=0; i<length; i++) {
+		password[i] = charlist[rng.GenerateWord32(0, charlist_len-1)];
+	}
+
+	// Return password in a string
+	jbyteArray output = env->NewByteArray(length);
+	env->SetByteArrayRegion(output, 0, length, reinterpret_cast<jbyte*>(password));
+	return output;
+}
