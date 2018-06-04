@@ -1,5 +1,5 @@
 // Java header
-#include "one_id0_ppass_Crypto.h"
+#include "one_id0_ppass_backend_Crypto.h"
 
 // Libs and crypto header file
 #include <string>
@@ -13,7 +13,7 @@ jint throwException(JNIEnv *env, const char *message)
 }
 
 // Generates blake2b hash (username hash is 32 byte blake2, account hash is 16 byte blake2)
-JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_Crypto_blake2b(JNIEnv *env, jobject obj, jbyteArray javaTohash, jint digest_len) {
+JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_backend_Crypto_blake2b(JNIEnv *env, jobject obj, jbyteArray javaTohash, jint digest_len) {
 	// Get args
 	size_t tohash_len = env->GetArrayLength(javaTohash);
 	byte* tohash = (byte*)malloc(tohash_len);
@@ -31,7 +31,7 @@ JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_Crypto_blake2b(JNIEnv *env, jobj
 }
 
 // Generates random bytes using the native entropy source
-JNIEXPORT void JNICALL Java_one_id0_ppass_Crypto_generateRandomBytes(JNIEnv *env, jobject obj, jbyteArray javaBytes) {
+JNIEXPORT void JNICALL Java_one_id0_ppass_backend_Crypto_generateRandomBytes(JNIEnv *env, jobject obj, jbyteArray javaBytes) {
 	// Get length of byte array passed, and malloc a buffer of the same length
 	size_t bytes_len = env->GetArrayLength(javaBytes);
 	byte* bytes = (byte*)malloc(bytes_len);
@@ -43,7 +43,7 @@ JNIEXPORT void JNICALL Java_one_id0_ppass_Crypto_generateRandomBytes(JNIEnv *env
 }
 
 // Generates key from password and username hash
-JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_Crypto_generateKey(JNIEnv *env, jobject obj, jstring javaPassword, jbyteArray javaUserhash) {
+JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_backend_Crypto_generateKey(JNIEnv *env, jobject obj, jstring javaPassword, jbyteArray javaUserhash) {
 	// Get args
 	jboolean javaFalse = false;
 	std::string password = env->GetStringUTFChars(javaPassword, &javaFalse);
@@ -66,12 +66,12 @@ JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_Crypto_generateKey(JNIEnv *env, 
 }
 
 // Generates master key hash from master key
-JNIEXPORT jint Java_one_id0_ppass_Crypto_returnMasterKeyLength(JNIEnv *env, jobject obj) {
+JNIEXPORT jint Java_one_id0_ppass_backend_Crypto_returnMasterKeyLength(JNIEnv *env, jobject obj) {
 	return (jint)MASTERKEYLEN;
 }
 
 // Encrypts account name and password using master key
-JNIEXPORT jbyteArray Java_one_id0_ppass_Crypto_encryptAccountPassword(JNIEnv *env, jobject obj, jbyteArray javaMasterKey, jstring javaAccount, jstring javaPassword) {
+JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_encryptAccountPassword(JNIEnv *env, jobject obj, jbyteArray javaMasterKey, jstring javaAccount, jstring javaPassword) {
 	// Get args
 	jboolean javaFalse = false;
 	std::string accountname = env->GetStringUTFChars(javaAccount, &javaFalse);
@@ -104,7 +104,7 @@ JNIEXPORT jbyteArray Java_one_id0_ppass_Crypto_encryptAccountPassword(JNIEnv *en
 }
 
 // Decrypts account name and password using master key
-JNIEXPORT jbyteArray Java_one_id0_ppass_Crypto_decryptAccountPassword(JNIEnv *env, jobject obj, jbyteArray javaMasterKey, jbyteArray javaCiphertext) {
+JNIEXPORT jobjectArray Java_one_id0_ppass_backend_Crypto_decryptAccountPassword(JNIEnv *env, jobject obj, jbyteArray javaMasterKey, jbyteArray javaCiphertext) {
 	// Get args
 	size_t masterkey_len = env->GetArrayLength(javaMasterKey);
 	byte* masterkey = (byte*)malloc(masterkey_len);
@@ -128,11 +128,11 @@ JNIEXPORT jbyteArray Java_one_id0_ppass_Crypto_decryptAccountPassword(JNIEnv *en
 		return NULL;
 	}
 
-	// Run deserialization and copy over to Java byte array as output, separated by NULL
+	// Run deserialization and copy over to Java String array as output. Note that our strings are null-terminated.
 	struct accountname_and_password accnpass = deserializePlaintext(plaintext);
-	jbyteArray output = env->NewByteArray(accnpass.accname_len+accnpass.password_len+1);
-	env->SetByteArrayRegion(output, 0, accnpass.accname_len, reinterpret_cast<jbyte*>(accnpass.accname));
-	env->SetByteArrayRegion(output, accnpass.accname_len+1, accnpass.password_len, reinterpret_cast<jbyte*>(accnpass.password));
+	jobjectArray output = env->NewObjectArray(2, env->FindClass("java/lang/String"), env->NewStringUTF(""));
+	env->SetObjectArrayElement(output, 0, env->NewStringUTF((char*)accnpass.accname));
+	env->SetObjectArrayElement(output, 1, env->NewStringUTF(accnpass.password));
 
 	// Free plaintext and accnpass pointers and return byte array
 	secureFree(&plaintext, PLAINTEXTLEN);
@@ -142,23 +142,24 @@ JNIEXPORT jbyteArray Java_one_id0_ppass_Crypto_decryptAccountPassword(JNIEnv *en
 }
 
 // Generates random password
-JNIEXPORT jbyteArray Java_one_id0_ppass_Crypto_generateRandomPasswordRaw(JNIEnv *env, jobject obj, jbyteArray javaCharlist, jint length) {
+JNIEXPORT jstring Java_one_id0_ppass_backend_Crypto_generateRandomPassword(JNIEnv *env, jobject obj, jbyteArray javaCharlist, jint javaLength) {
 	// Get args
 	size_t charlist_len = env->GetArrayLength(javaCharlist);
-	byte* charlist = (byte*)malloc(charlist_len);
+	char* charlist = (char*)malloc(charlist_len);
 	env->GetByteArrayRegion(javaCharlist, 0, charlist_len, reinterpret_cast<jbyte*>(charlist));
 
 	// Password buffer, PRNG and PRNG output buffer
-	byte* password = (byte*)malloc((uint32_t)length);
-	CryptoPP::AutoSeededRandomPool rng;
+	uint32_t length = javaLength;
+	char password[length+1];
+	CryptoPP::AutoSeededRandomPool rng(false, 48); // 384 bits of entropy in, maximum 384 bits of entropy out
 
 	// Get randomly generated password bytes. Note that GenerateWord32 is inclusive.
-	for (int i=0; i<length; i++) {
+	for (uint32_t i=0; i<length; i++) {
 		password[i] = charlist[rng.GenerateWord32(0, charlist_len-1)];
 	}
 
-	// Return password in a string
-	jbyteArray output = env->NewByteArray(length);
-	env->SetByteArrayRegion(output, 0, length, reinterpret_cast<jbyte*>(password));
-	return output;
+	// Free charlist, return password in a null terminated string
+	free(charlist);
+	password[length] = '\0';
+	return env->NewStringUTF(password);
 }

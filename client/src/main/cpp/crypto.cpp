@@ -80,14 +80,16 @@ struct accountname_and_password deserializePlaintext(const byte* plaintext) {
 	char* password = (char*)malloc(password_len);
 	z827_decompress(password_padded, password_compressed_len, password);
 
-	// Generate output struct
+	// Generate null-terminated output struct (null terminators not included in length)
 	struct accountname_and_password out;
-	out.accname = (byte*)malloc(accname_len);
+	out.accname = (byte*)malloc(accname_len+1);
 	out.accname_len = accname_len;
-	out.password = (char*)malloc(password_len);
+	out.password = (char*)malloc(password_len+1);
 	out.password_len = password_len;
 	memcpy(out.accname, accname_padded, accname_len);
 	memcpy(out.password, password, password_len);
+	out.accname[accname_len] = '\0';
+	out.password[password_len] = '\0';
 
 	// Wipe password
 	secureFree((byte**)(&password), password_len);
@@ -384,7 +386,7 @@ int main() {
 	if (!double_hash(password, strlen(password), username, strlen((const char*)username), key)) {
 		puts("Error spawning pthread");
 	}
-	for (int i=0; i<MASTERKEYLEN; i++) {
+	for (uint16_t i=0; i<MASTERKEYLEN; i++) {
 		printf("%.02x", key[i]);
 	}
 	puts("");

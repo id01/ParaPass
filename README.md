@@ -22,5 +22,8 @@ Passwords for the paranoid
 	* Build PPassBackend and run for CLI
 
 ### Changelog
+* Version 0.0.2 (??/??/????) -> Not done yet
+	* Moved random password generation to CryptoPP::GenerateWord
+	* Added UI
 * Version 0.0.1 (06/01/2018)
 	* Rewrote everything a lot of times and weeded out a lot of bugs

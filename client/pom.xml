@@ -6,12 +6,6 @@
   <build>
     <sourceDirectory>src/crypto/java</sourceDirectory>
     <resources>
-      <resource>
-        <directory>src/crypto/java</directory>
-        <excludes>
-          <exclude>**/*.java</exclude>
-        </excludes>
-      </resource>
     </resources>
     <plugins>
       <plugin>
@@ -34,6 +28,11 @@
   		<groupId>ch.qos.logback</groupId>
   		<artifactId>logback-classic</artifactId>
   		<version>1.2.3</version>
+  	</dependency>
+  	<dependency>
+  		<groupId>com.jfoenix</groupId>
+  		<artifactId>jfoenix</artifactId>
+  		<version>8.0.4</version>
   	</dependency>
   </dependencies>
 </project>
