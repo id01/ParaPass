@@ -3,13 +3,12 @@ pragma solidity ^0.4.20;
 contract PPassNetwork {
 	/* Event for changing a password */
 	event changedPassword(bytes32 indexed uid, bytes16 indexed aid, bytes newPass);
-	/* Event for adding an account */
-	event addedAccount(bytes32 indexed uid, bytes16 aid);
 
 	/* This is a struct for a single user */
 	struct User {
 		address owner; // Owner of this user account
 		bytes8 passhash; // Collisions actually help us here. Increases complexity for the attacker with low chance of happening for the user.
+		bytes16[] accounts; // List of all account hashes this user has
 		mapping (bytes16 => bytes) passwords; // Mapping from account hash to password
 	}
 
@@ -28,6 +27,7 @@ contract PPassNetwork {
 		/* Claim UID in the user mapping, copy over pwhash, and return success */
 		users[_uid].owner = msg.sender;
 		users[_uid].passhash = _pwhash;
+		users[_uid].accounts = new bytes16[](0);
 		return true;
 	}
 
@@ -46,7 +46,7 @@ contract PPassNetwork {
 		require(users[_uid].owner == msg.sender);
 		/* If account is new, trigger addedAccount event */
 		if (users[_uid].passwords[_aid].length == 0) {
-			emit addedAccount(_uid, _aid);
+			users[_uid].accounts.push(_aid);
 		}
 		/* Put password */
 		users[_uid].passwords[_aid] = newPass;
@@ -58,6 +58,11 @@ contract PPassNetwork {
 	/* Get Password */
 	function getPassword(bytes32 _uid, bytes16 _aid) public view returns (bytes pass) {
 		return users[_uid].passwords[_aid];
+	}
+
+	/* Get All Accounts */
+	function getAllAccounts(bytes32 _uid) public view returns (bytes16[] accounts) {
+		return users[_uid].accounts;
 	}
 
 	/* Check whether an address is the owner of a uid and has the right password hash */

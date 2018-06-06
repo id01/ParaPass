@@ -1,6 +1,7 @@
 package one.id0.ppass.backend;
 
 import java.util.Scanner;
+import java.util.ArrayList;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -16,12 +17,13 @@ import org.web3j.tx.FastRawTransactionManager;
 import org.web3j.tx.response.PollingTransactionReceiptProcessor;
 
 import one.id0.ppass.gen.PPassNetwork;
+import one.id0.ppass.utils.UserAccount;
 
 // Wrapper class for entire backend and CLI application
 public class PPassBackend {
 	// Constants
 	final static int versionNum = 0;
-	final static int pollInterval = 5000;
+	final static int pollInterval = 2000;
 	final static int pollCount = 1000;
 
 	// Class variables
@@ -118,24 +120,50 @@ public class PPassBackend {
 		user = new User(ppass, username, masterpass, false, logger);
 	}
 	
-	// Puts a password
-	public String putPassword(String accountname, String charlist, int length) throws Exception {
-		// Check if we are logged in. If not, throw an exception
+	// Check if logged in. If not, throw an exception.
+	public void checkLogin() throws Exception {
 		if (user == null) {
 			throw new Exception("Not logged in!");
 		}
-		// Put password
+	}
+	
+	// Puts a password
+	public String putPassword(String accountname, String charlist, int length) throws Exception {
+		// Check login, put password
+		checkLogin();
 		return user.putPassword(accountname, charlist.getBytes(), length);
 	}
 	
-	// Gets a password and account name
+	// Gets a password and account name with the account name
 	public String[] getPassword(String accountname) throws Exception {
-		// Check if we are logged in. If not, throw an exception
-		if (user == null) {
-			throw new Exception("Not logged in!");
-		}
-		// Get password
+		// Check login, get password
+		checkLogin();
 		return user.getPassword(accountname);
+	}
+	
+	// Gets a password and account name with an ID
+	public String[] getPassword(byte[] accountID) throws Exception {
+		// Check login, get password by ID
+		checkLogin();
+		return user.getPasswordById(accountID);
+	}
+	
+	// Sets logger object
+	public void setLogger(Logger logger) {
+		this.logger = logger;
+		this.user.setLogger(logger);
+	}
+	
+	// Gets all accounts and their respective block heights
+	public ArrayList<UserAccount> getAllAccounts() throws Exception {
+		// Get all accounts for user
+		ArrayList<byte[]> allAccountIDs = user.getAllAccounts();
+		ArrayList<UserAccount> allAccounts = new ArrayList<UserAccount>();
+		for (byte[] accountID : allAccountIDs) {
+			String accountName = user.getPasswordById(accountID)[0];
+			allAccounts.add(new UserAccount(accountID, accountName));
+		}
+		return allAccounts;
 	}
 
 	// Main function
@@ -192,6 +220,11 @@ public class PPassBackend {
 						System.out.println("Password: " + accountnamepassword[1]);
 					} else {
 						System.out.println("Usage: getpassword [account]");
+					}
+				} else if (line[0].equals("getallaccounts")) { // Gets all accounts. Usage: getallaccounts
+					ArrayList<UserAccount> accounts = self.getAllAccounts();
+					for (UserAccount account : accounts) {
+						System.out.println(account.accountID + ": " + account.accountName);
 					}
 				} else if (line[0].equals("exit")) {
 					sc.close();

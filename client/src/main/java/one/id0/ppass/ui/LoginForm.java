@@ -8,6 +8,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.Pane;
@@ -30,7 +31,7 @@ import one.id0.ppass.backend.PPassBackend;
 
 public class LoginForm {
 	// Constant for PPassNetwork address
-	final private String ppassAddress = "0x9cbda36a7060497860cf028fc16bd5bb66e77db3";
+	final private String ppassAddress = "0xf09d7f2623d109a0567fc377f080200c61f7bad7";
 	
 	// Class variables
 	private Stage stage;
@@ -123,7 +124,7 @@ public class LoginForm {
 			});
 			loginTask.setOnSucceeded(ee->{
 				try {
-					new MainPage(stage);
+					new MainPage(stage, backend);
 				} catch (IOException eee) {
 					logger.logErr(eee.getMessage());
 				}
@@ -170,7 +171,8 @@ public class LoginForm {
 				JFXDialog dialog = new JFXDialog(everythingPane, dialogLayout, JFXDialog.DialogTransition.CENTER);
 				dialogLayout.setHeading(new Text("Wallet Encrypted"));
 				// Construct dialog body
-				Text dialogBodyText = new Text("This keystore file is encrypted. Please type the password below to decrypt the file.");
+				TextFlow dialogBodyText = new TextFlow(new Text("This keystore file is encrypted. " +
+						"Please type the password below to decrypt the file."));
 				Text emptyLine = new Text(" ");
 				JFXTextField keystorePasswordInput = new JFXTextField();
 				keystorePasswordInput.setLabelFloat(true);

@@ -14,6 +14,8 @@ Passwords for the paranoid
 	* CryptoPP
 	* Pthread
 	* JNI
+	* JavaFX
+	* Maven (will install other dependencies)
 * Build
 	* Generate `PPassNetwork.java` by building `PPassNetwork.sol` with the `web3j` command. Put this in `client/src/gen/java/id0/ppass/gen/PPassNetwork.java`
 	* Download [argon2](https://github.com/P-H-C/phc-winner-argon2) and [scrypt-jane](https://github.com/floodyberry/scrypt-jane) from their respective repos and
@@ -22,8 +24,11 @@ Passwords for the paranoid
 	* Build PPassBackend and run for CLI
 
 ### Changelog
-* Version 0.0.2 (??/??/????) -> Not done yet
+* Version 0.0.2 (06/05/2018)
 	* Moved random password generation to CryptoPP::GenerateWord
-	* Added UI
+	* Added UI (using JavaFX)
+	* Added "get all accounts" functionality to smart contract
+	* More UI stuff
+	* Still need to connect ADD functionality to UI element
 * Version 0.0.1 (06/01/2018)
 	* Rewrote everything a lot of times and weeded out a lot of bugs

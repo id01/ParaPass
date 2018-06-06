@@ -19,9 +19,9 @@
 
 <StackPane fx:id="everythingPane" xmlns="http://javafx.com/javafx/8.0.141" xmlns:fx="http://javafx.com/fxml/1">
    <children>
-      <AnchorPane prefHeight="540.0" prefWidth="848.0" style="-fx-background-color: #282830;">
+      <AnchorPane prefHeight="540.0" prefWidth="848.0" styleClass="dark" stylesheets="@css/default.css">
          <children>
-            <Pane fx:id="loginFormPane" layoutX="229.0" layoutY="142.0" prefHeight="328.0" prefWidth="392.0" style="-fx-background-color: #282830;">
+            <Pane fx:id="loginFormPane" layoutX="229.0" layoutY="142.0" prefHeight="328.0" prefWidth="392.0" styleClass="dark">
                <children>
                   <JFXTogglePane layoutX="23.0" layoutY="243.0" prefHeight="26.0" prefWidth="308.0" />
                   <GridPane layoutX="42.0" prefHeight="268.0" prefWidth="308.0">
@@ -35,8 +35,8 @@
                         <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                     </rowConstraints>
                      <children>
-                        <JFXTextField fx:id="usernameInput" labelFloat="true" prefHeight="26.0" prefWidth="308.0" promptText="Username" style="-fx-text-inner-color: WHITE;" />
-                        <JFXPasswordField fx:id="passwordInput" labelFloat="true" prefHeight="26.0" prefWidth="308.0" promptText="Password" style="-fx-text-inner-color: WHITE;" GridPane.rowIndex="1" />
+                        <JFXTextField fx:id="usernameInput" labelFloat="true" prefHeight="26.0" prefWidth="308.0" promptText="Username" styleClass="darkInput" />
+                        <JFXPasswordField fx:id="passwordInput" labelFloat="true" prefHeight="26.0" prefWidth="308.0" promptText="Password" styleClass="darkInput" GridPane.rowIndex="1" />
                         <BorderPane GridPane.rowIndex="3">
                            <left>
                               <JFXCheckBox fx:id="rememberMeCheckbox" checkedColor="#5b5b5b" text="Remember Me" textFill="#5b5b5b" BorderPane.alignment="CENTER">

@@ -1,0 +1,20 @@
+.dark {
+	-fx-background-color: #282828;
+}
+
+.dark > .split-pane-divider {
+	-fx-background-color: #303033;
+}
+
+.darkInput {
+	-fx-text-inner-color: #444444;
+}
+
+.darkHamburger StackPane {
+	-fx-background-color: #444444;
+}
+
+.darkTableView {
+	-fx-border-color: #303033;
+	-fx-table-cell-border-color: #303033;
+}

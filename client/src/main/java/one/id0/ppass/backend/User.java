@@ -1,5 +1,7 @@
 package one.id0.ppass.backend;
 
+import java.util.ArrayList;
+
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 
 import one.id0.ppass.gen.PPassNetwork;
@@ -10,6 +12,7 @@ public class User {
 	private Crypto crypto;
 	private PPassNetwork ppass;
 	private Logger logger;
+	private byte[] userhash;
 	
 	// Constructor. Takes in the PPassNetwork connection the user is on
 	// the username, the password, and whether we want to create a user or log into one 
@@ -21,7 +24,7 @@ public class User {
 		crypto = new Crypto(username, masterpass);
 		this.ppass = ppass;
 		// Get userhash and masterkeyhash
-		byte[] userhash = crypto.getUserHash();
+		userhash = crypto.getUserHash();
 		byte[] masterkeyhash = crypto.getMasterKeyHash();
 		// If we are creating a user account, attempt to create it.
 		if (createmode) {
@@ -57,12 +60,31 @@ public class User {
 		return pass;
 	}
 	
-	// Gets a password and account name in the form {accountname, password}
-	public String[] getPassword(String accountname) throws Exception {
+	// Gets a password and account name in the form {accountname, password} by ID
+	public String[] getPasswordById(byte[] accounthash) throws Exception {
 		// Get ciphertext and decrypt
 		logger.log("Getting password...");
-		byte[] ciphertext = ppass.getPassword(crypto.getUserHash(), crypto.hashAccountName(accountname)).send();
+		byte[] ciphertext = ppass.getPassword(crypto.getUserHash(), accounthash).send();
 		logger.log("Done!");
 		return crypto.decrypt(ciphertext);
+	}
+	
+	// Gets a password and account name in the form {accountname, password}
+	public String[] getPassword(String accountname) throws Exception {
+		return getPasswordById(crypto.hashAccountName(accountname));
+	}
+	
+	// Gets all accounts
+	public ArrayList<byte[]> getAllAccounts() throws Exception {
+		ArrayList<byte[]> allAccounts = new ArrayList<byte[]>();
+		for (Object account : ppass.getAllAccounts(userhash).send()) {
+			allAccounts.add((byte[])account);
+		}
+		return allAccounts;
+	}
+	
+	// Sets the logger
+	public void setLogger(Logger logger) {
+		this.logger = logger;
 	}
 }
