@@ -173,6 +173,7 @@ public class PPassBackend {
 		byte[] aid = user.getAccountHash(accountname);
 		try {
 			userCache.cacheNewAccount(aid);
+			logger.log("User account inserted into cache");
 		} catch (Exception e) {
 			logger.log("Account already exists!");
 		}
@@ -202,7 +203,7 @@ public class PPassBackend {
 		if (description != null) {
 			userCache.updateDescription(aid, description);
 		}
-		if (pinnedStatus < 0) {
+		if (pinnedStatus >= 0) {
 			if (pinnedStatus == 0) {
 				userCache.updatePinnedStatus(aid, false);
 			} else {

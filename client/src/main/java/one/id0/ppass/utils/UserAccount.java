@@ -11,6 +11,12 @@ import java.time.format.DateTimeFormatter;
 import com.jfoenix.controls.datamodels.treetable.RecursiveTreeObject;
 
 public class UserAccount extends RecursiveTreeObject<UserAccount> {
+	// Final objects
+	StringProperty neverstr = new SimpleStringProperty("Never");
+	StringProperty emptystr = new SimpleStringProperty("");
+	StringProperty pinnedstr = new SimpleStringProperty("pinned");
+	
+	// Properties
 	public byte[] accountID;
 	public StringProperty accountName;
 	public StringProperty description;
@@ -21,9 +27,9 @@ public class UserAccount extends RecursiveTreeObject<UserAccount> {
 	public UserAccount(byte[] accountID, String accountName) {
 		this.accountID = accountID;
 		this.accountName = new SimpleStringProperty(accountName);
-		this.description = new SimpleStringProperty("");
-		this.timestamp = null;
-		this.pinned = new SimpleStringProperty("");
+		this.description = emptystr;
+		this.timestamp = neverstr;
+		this.pinned = emptystr;
 	}
 	
 	// Constructor that initializes everything
@@ -36,14 +42,18 @@ public class UserAccount extends RecursiveTreeObject<UserAccount> {
 		} else {
 			this.description = new SimpleStringProperty("");
 		}
-		// Initialize timestamp. Note that the string must be sortable
-		ZonedDateTime instant = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault());
-		this.timestamp = new SimpleStringProperty(DateTimeFormatter.ofPattern("yyyy/MM/dd").format(instant));
+		// Initialize timestamp string and timestamp.
+		if (timestamp != 0) {
+			ZonedDateTime instant = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault());
+			this.timestamp = new SimpleStringProperty(DateTimeFormatter.ofPattern("yyyy-MM-dd").format(instant));
+		} else {
+			this.timestamp = neverstr;
+		}
 		// Initialize pinned state.
 		if (pinned) {
-			this.pinned = new SimpleStringProperty("pinned");
+			this.pinned = pinnedstr;
 		} else {
-			this.pinned = new SimpleStringProperty("");
+			this.pinned = emptystr;
 		}
 	}
 }

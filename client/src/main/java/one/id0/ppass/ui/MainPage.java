@@ -66,7 +66,7 @@ public class MainPage {
 	private PPassBackend backend;
 	private Stage stage;
 	private Logger logger;
-	private ArrayList<UserAccount> allAccounts;
+	private TreeItem<UserAccount> accountRoot;
 	private JFXTreeTableView<UserAccount> searchTreeTable;
 	private UserAccount selectedAccount;
 	
@@ -116,11 +116,12 @@ public class MainPage {
 		logger = new Logger(onLog, onLog);
 		backend.setLogger(logger);
 		
-		// Create accountHamburger actions (new password and past passwords)
+		// Create accountHamburger actions (new password, pin password, past passwords)
 		JFXListView<Label> accountHamburgerActions = new JFXListView<Label>();
 		Label newPasswordButton = new Label("New password");
+		Label pinPasswordButton = new Label("Pin password"); // Note: This can also become the "Unpin password" button
 		Label pastPasswordsButton = new Label("Past passwords");
-		accountHamburgerActions.getItems().setAll(newPasswordButton, pastPasswordsButton);
+		accountHamburgerActions.getItems().setAll(newPasswordButton, pinPasswordButton, pastPasswordsButton);
 		// Create wrappers for JFXListView
 		JFXHamburger accountHamburger = new JFXHamburger();
 		accountHamburger.getStyleClass().add("darkHamburger");
@@ -137,6 +138,8 @@ public class MainPage {
 			Label selected = accountHamburgerActions.getSelectionModel().getSelectedItem();
 			if (selected == newPasswordButton) {
 				createNewPassword(selectedAccount.accountName.getValue(), false);
+			} else if (selected == pinPasswordButton) {
+				togglePasswordPin(selectedAccount);
 			} else if (selected == pastPasswordsButton) {
 				showPastPasswords();
 			} else {
@@ -146,6 +149,7 @@ public class MainPage {
 		});
 		
 		// Initialize searchTreeTable columns
+		// Account name column
 		JFXTreeTableColumn<UserAccount, String> accountNameColumn = new JFXTreeTableColumn<UserAccount, String>("Name");
 		accountNameColumn.setCellValueFactory((TreeTableColumn.CellDataFeatures<UserAccount, String> param) -> {
 			if (param.getValue().getValue() == null) {
@@ -155,14 +159,34 @@ public class MainPage {
         });
 		accountNameColumn.setCellFactory((TreeTableColumn<UserAccount, String> param) ->
         	new GenericEditableTreeTableCell<UserAccount, String>(new TextFieldEditorBuilder()));
+		// Timestamp column
+		JFXTreeTableColumn<UserAccount, String> timestampColumn = new JFXTreeTableColumn<UserAccount, String>("Last Accessed");
+		timestampColumn.setCellValueFactory((TreeTableColumn.CellDataFeatures<UserAccount, String> param) -> {
+			if (param.getValue().getValue() == null) {
+				return new SimpleStringProperty("Never");
+			}
+            return param.getValue().getValue().timestamp;
+        });
+		timestampColumn.setCellFactory((TreeTableColumn<UserAccount, String> param) ->
+        	new GenericEditableTreeTableCell<UserAccount, String>(new TextFieldEditorBuilder()));
+		// Pinned column
+		JFXTreeTableColumn<UserAccount, String> pinnedColumn = new JFXTreeTableColumn<UserAccount, String>("Pinned");
+		pinnedColumn.setCellValueFactory((TreeTableColumn.CellDataFeatures<UserAccount, String> param) -> {
+			if (param.getValue().getValue() == null) {
+				return new SimpleStringProperty("");
+			}
+            return param.getValue().getValue().pinned;
+        });
+		pinnedColumn.setCellFactory((TreeTableColumn<UserAccount, String> param) ->
+        	new GenericEditableTreeTableCell<UserAccount, String>(new TextFieldEditorBuilder()));
 		
 		// Initialize searchTreeTable content and listeners
 		try {
-			allAccounts = backend.getAllAccounts();
+			ArrayList<UserAccount> allAccounts = backend.getAllAccounts();
 			ObservableList<UserAccount> accounts = FXCollections.observableArrayList(allAccounts);
-			final TreeItem<UserAccount> root = new RecursiveTreeItem<UserAccount>(accounts, RecursiveTreeObject::getChildren);
-			searchTreeTable = new JFXTreeTableView<UserAccount>(root);
-			searchTreeTable.getColumns().setAll(accountNameColumn);
+			accountRoot = new RecursiveTreeItem<UserAccount>(accounts, RecursiveTreeObject::getChildren);
+			searchTreeTable = new JFXTreeTableView<UserAccount>(accountRoot);
+			searchTreeTable.getColumns().setAll(accountNameColumn, timestampColumn, pinnedColumn);
 			searchInput.textProperty().addListener((o, oldVal, newVal) -> {
 				searchTreeTable.setPredicate(accProp -> {
 					final UserAccount account = accProp.getValue();
@@ -176,6 +200,7 @@ public class MainPage {
 			searchTreeTable.getStyleClass().add("dark");
 			searchTreeTable.getSelectionModel().selectedItemProperty().addListener((o, oldVal, newVal) -> {
 				if (newVal != null) {
+					// Change selectedAccount and right panel
 					selectedAccount = newVal.getValue();
 					accountTitle.setText(selectedAccount.accountName.getValue());
 					accountDescription.setText(selectedAccount.description.getValue());
@@ -183,6 +208,18 @@ public class MainPage {
 					accountCopyButton.setText("Copy Password");
 					accountCopyButton.setDisable(false);
 					accountHamburger.setDisable(false);
+					// Toggle pinPasswordButton text based on whether the selected password is currently pinned
+					if (selectedAccount.pinned.getValue().equals("")) {
+						pinPasswordButton.setText("Pin password");
+					} else {
+						pinPasswordButton.setText("Unpin password");
+					}
+					// Update last accessed timestamp for selectedAccount
+					try {
+						backend.updateAccountCache(selectedAccount.accountID, true, null, -1);
+					} catch (Exception e) {
+						logger.log("Failed to update last accessed timestamp: " + e.getMessage());
+					}
 				}
 			});
 		} catch (Exception e) {
@@ -223,21 +260,20 @@ public class MainPage {
 	
 	// Updates searchTreeTable (the sidebar JFXTreeTable)
 	private void updateSearchTreeWithAccountAsync(String accountNameToAdd) throws Exception {
-		// Remove duplicates
-		for (int i=0; i<allAccounts.size(); i++) {
-			if (allAccounts.get(i).accountName.getValue().equals(accountNameToAdd)) {
-				allAccounts.remove(i);
-				i--;
-			}
-		}
 		// Add our new UserAccount and regenerate root 
-		allAccounts.add(backend.getUserAccountObject(accountNameToAdd));
-		ObservableList<UserAccount> accounts = FXCollections.observableArrayList(allAccounts);
-		final TreeItem<UserAccount> root = new RecursiveTreeItem<UserAccount>(accounts, RecursiveTreeObject::getChildren);
-		// Set the root in the UI thread
+		UserAccount userAccountToAdd = backend.getUserAccountObject(accountNameToAdd);
+		// Add this child in the UI thread
 		Platform.runLater(new Runnable() {
 			public void run() {
-				searchTreeTable.setRoot(root);
+				// Loop through the items in accountRoot. If we are updating a past value, update it and return.
+				for (TreeItem<UserAccount> item : accountRoot.getChildren()) {
+					if (item.getValue().accountName.getValue().equals(accountNameToAdd)) {
+						item.setValue(userAccountToAdd);
+						return;
+					}
+				}
+				// This is a new value. Add to accountRoot.
+				accountRoot.getChildren().add(new TreeItem<UserAccount>(userAccountToAdd));
 			}
 		});
 	}
@@ -389,6 +425,21 @@ public class MainPage {
 		dialogLayout.setActions(cancelButton, continueButton);
 		// Create dialog and show
 		dialog.show();
+	}
+	
+	// Toggles a password's pin state
+	protected void togglePasswordPin(UserAccount account) {
+		try {
+			if (account.pinned.getValue().equals("")) {
+				backend.updateAccountCache(account.accountID, true, null, 1);
+				account.pinned.set("pinned");
+			} else {
+				backend.updateAccountCache(account.accountID, true, null, 0);
+				account.pinned.set("");
+			}
+		} catch (Exception e) {
+			logger.log("Failed to toggle password pin: " + e.getMessage());
+		}
 	}
 	
 	// Creates a new password for the account in Input
