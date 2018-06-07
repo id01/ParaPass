@@ -163,3 +163,109 @@ JNIEXPORT jstring Java_one_id0_ppass_backend_Crypto_generateRandomPassword(JNIEn
 	password[length] = '\0';
 	return env->NewStringUTF(password);
 }
+
+// Encrypts a misc byte array
+#define MISCKEYLEN 32
+#define MISCNONCELEN 24
+#define MISCHMACLEN 16
+JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_encryptMiscData(JNIEnv *env, jobject obj, jbyteArray javaMasterKey, jbyteArray javaPlaintext) {
+	// Get args
+	size_t plaintext_len = env->GetArrayLength(javaPlaintext);
+	byte* plaintext = (byte*)malloc(plaintext_len);
+	env->GetByteArrayRegion(javaPlaintext, 0, plaintext_len, reinterpret_cast<jbyte*>(plaintext));
+	size_t masterkey_len = env->GetArrayLength(javaMasterKey);
+	byte* masterkey = (byte*)malloc(masterkey_len);
+	env->GetByteArrayRegion(javaMasterKey, 0, masterkey_len, reinterpret_cast<jbyte*>(masterkey));
+
+	/* Generate key */
+	// Generate misckey (we don't want to use masterkey because if xsalsa20 is compromised in a way that leaks the key that will be bad)
+	// Misckey is blake2 hash of masterkey where masterkey[0] is incremented by 1, as a blake2 hash was already made public
+	masterkey[0]++;
+	byte* misckey = (byte*)malloc(MISCKEYLEN);
+	CryptoPP::BLAKE2b(false, MISCKEYLEN).CalculateDigest(misckey, masterkey, masterkey_len);
+
+	/* Encrypt using XSalsa20-Poly1305 */
+	// Set up output. Input is at plaintext. Our output (ciphertextfull) will be [nonce || hmac || ciphertext]
+	size_t ciphertextfull_len = MISCNONCELEN+MISCHMACLEN+plaintext_len;
+	byte* ciphertextfull = (byte*)malloc(ciphertextfull_len);
+	byte* nonce = ciphertextfull;
+	byte* hmac = nonce+MISCNONCELEN;
+	byte* ciphertext = hmac+MISCHMACLEN;
+	// Generate nonce
+	CryptoPP::OS_GenerateRandomBlock(false, nonce, MISCNONCELEN);
+	// Generate HMAC for plaintext
+	CryptoPP::Poly1305<CryptoPP::AES> poly1305(misckey, MISCKEYLEN, nonce, MISCNONCELEN);
+	poly1305.Update(plaintext, plaintext_len);
+	poly1305.Final(hmac);
+	// Encrypt with XSalsa20
+	CryptoPP::XSalsa20::Encryption xsalsa20;
+	xsalsa20.SetKeyWithIV(misckey, MISCKEYLEN, nonce, MISCNONCELEN);
+	xsalsa20.ProcessData(ciphertext, plaintext, plaintext_len);
+
+	/* Cleanup and return */
+	// Copy over full ciphertext to buffer
+	jbyteArray output = env->NewByteArray(ciphertextfull_len);
+	env->SetByteArrayRegion(output, 0, ciphertextfull_len, reinterpret_cast<jbyte*>(ciphertextfull));
+	// Clean up what we allocated
+	secureFree(&plaintext, plaintext_len);
+	secureFree(&masterkey, masterkey_len);
+	secureFree(&misckey, MISCKEYLEN);
+	free(ciphertextfull);
+	// Return
+	return output;
+}
+
+// Decrypts a misc byte array
+JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_decryptMiscData(JNIEnv *env, jobject obj, jbyteArray javaMasterKey, jbyteArray javaCiphertextFull) {
+	// Get args
+	size_t ciphertextfull_len = env->GetArrayLength(javaCiphertextFull);
+	byte* ciphertextfull = (byte*)malloc(ciphertextfull_len);
+	env->GetByteArrayRegion(javaCiphertextFull, 0, ciphertextfull_len, reinterpret_cast<jbyte*>(ciphertextfull));
+	size_t masterkey_len = env->GetArrayLength(javaMasterKey);
+	byte* masterkey = (byte*)malloc(masterkey_len);
+	env->GetByteArrayRegion(javaMasterKey, 0, masterkey_len, reinterpret_cast<jbyte*>(masterkey));
+
+	/* Generate key */
+	// Generate misckey (we don't want to use masterkey because if xsalsa20 is compromised in a way that leaks the key that will be bad)
+	// Misckey is blake2 hash of masterkey where masterkey[0] is incremented by 1, as a blake2 hash was already made public
+	masterkey[0]++;
+	byte* misckey = (byte*)malloc(MISCKEYLEN);
+	CryptoPP::BLAKE2b(false, MISCKEYLEN).CalculateDigest(misckey, masterkey, masterkey_len);
+
+	/* Decrypt using XSalsa20-Poly1305 */
+	// Set up output
+	size_t plaintext_len = ciphertextfull_len-MISCNONCELEN-MISCHMACLEN;
+	byte* plaintext = (byte*)malloc(plaintext_len);
+	byte hmac[MISCHMACLEN];
+	// Set up input
+	byte* xsalsa20nonce = ciphertextfull;
+	byte* xsalsa20hmac = xsalsa20nonce+MISCNONCELEN;
+	byte* xsalsa20ciphertext = xsalsa20hmac+MISCHMACLEN;
+	// Decrypt with XSalsa20
+	CryptoPP::XSalsa20::Decryption xsalsa20;
+	xsalsa20.SetKeyWithIV(misckey, MISCKEYLEN, xsalsa20nonce, MISCNONCELEN);
+	xsalsa20.ProcessData(plaintext, xsalsa20ciphertext, plaintext_len);
+	// Generate HMAC for plaintext
+	CryptoPP::Poly1305<CryptoPP::AES> poly1305(misckey, MISCKEYLEN, xsalsa20nonce, MISCNONCELEN);
+	poly1305.Update(plaintext, plaintext_len);
+	poly1305.Final(hmac);
+
+	/* Output, Cleanup, and Return */
+	// Copy output
+	jbyteArray output = env->NewByteArray(plaintext_len);
+	env->SetByteArrayRegion(output, 0, plaintext_len, reinterpret_cast<jbyte*>(plaintext));
+	// Compare HMACs and return if they are equal. Store result in RAM.
+	bool hmacs_equal = (memcmp(xsalsa20hmac, hmac, MISCHMACLEN) == 0);
+	// Clean up what we allocated
+	secureFree(&masterkey, masterkey_len);
+	secureFree(&misckey, MISCKEYLEN);
+	secureFree(&plaintext, plaintext_len);
+	free(ciphertextfull);
+	// Throw and exception if hmacs aren't equal
+	if (!hmacs_equal) {
+		throwException(env, "Invalid HMAC"); // HMAC invalid
+		return NULL;
+	}
+	// Return output
+	return output;
+}

@@ -19,6 +19,8 @@ public class Crypto {
 	private native byte[] encryptAccountPassword(byte[] javaMasterKey, String javaAccount, String javaPassword) throws Exception;
 	private native String[] decryptAccountPassword(byte[] javaMasterKey, byte[] javaCiphertext) throws Exception;
 	private native String generateRandomPassword(byte[] javaCharlist, int javaLength);
+	private native byte[] encryptMiscData(byte[] javaMasterKey, byte[] javaPlaintext);
+	private native byte[] decryptMiscData(byte[] javaMasterKey, byte[] javaCiphertextFull) throws Exception;
 	static {
 		System.loadLibrary("Crypto");
 	}
@@ -29,14 +31,14 @@ public class Crypto {
 	
 	// Constructor - generates userhash, masterkey, and masterkeyhash
 	public Crypto(String username, String password) throws Exception {
-		userhash = blake2b(username.getBytes(), USERHASHLEN);
+		userhash = blake2b(username.toLowerCase().getBytes(), USERHASHLEN);
 		masterkey = generateKey(password, userhash);
 		masterkeyhash = blake2b(masterkey, PWHASHLEN);
 	}
 
 	// Function to hash an account name
 	public byte[] hashAccountName(String accountName) {
-		byte[] accountNameHash = blake2b(accountName.getBytes(), BLAKE2HASHLEN);
+		byte[] accountNameHash = blake2b(accountName.toLowerCase().getBytes(), BLAKE2HASHLEN);
 		byte[] concatenated = new byte[PWHASHLEN+USERHASHLEN+BLAKE2HASHLEN];
 		System.arraycopy(masterkeyhash, 0, concatenated, 0, PWHASHLEN);
 		System.arraycopy(userhash, 0, concatenated, BLAKE2HASHLEN, USERHASHLEN);
@@ -59,10 +61,18 @@ public class Crypto {
 	
 	// Functions to encrypt and decrypt account name and password
 	public byte[] encrypt(String accountName, String accountPassword) throws Exception {
-		return encryptAccountPassword(masterkey, accountName, accountPassword);
+		return encryptAccountPassword(masterkey, accountName.toLowerCase(), accountPassword);
 	}
 	public String[] decrypt(byte[] ciphertext) throws Exception {
 		return decryptAccountPassword(masterkey, ciphertext);
+	}
+	
+	// Functions to encrypt and decrypt misc data
+	public byte[] encryptMiscData(byte[] plaintext) {
+		return encryptMiscData(masterkey, plaintext);
+	}
+	public byte[] decryptMiscData(byte[] ciphertext) throws Exception {
+		return decryptMiscData(masterkey, ciphertext);
 	}
 	
 	// Destructor
@@ -78,25 +88,33 @@ public class Crypto {
 	// Main test function
 	public static void main(String [] args) {
 		try {
+			// Keygen and encryptiuon test
+			System.out.println("Key generation:");
 			Crypto self = new Crypto("asdf", "asdfasdf");
 			byte[] masterkey = self.generateKey("aasdfsdf", self.getUserHash());
 			byte[] acchash = self.hashAccountName("stuff");
 			byte[] ct = self.encrypt("aasdfsdf", "qwasdfer");
 			String[] pt = self.decrypt(ct);
-			String[] passwords = new String[128];
-			for (int i=0; i<passwords.length; i++) {
-				passwords[i] = self.generatePassword("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/".getBytes(), 128);
-			}
 			Base64.Encoder b64e = Base64.getEncoder();
 			System.out.println("Master key: " + b64e.encodeToString(masterkey));
 			System.out.println("Decrypted Plaintext: " + pt[0] + ":" + pt[1]);
 			System.out.println("Key hash: " + b64e.encodeToString(self.getMasterKeyHash()));
 			System.out.println("Account name hash: " + b64e.encodeToString(acchash));
+			// Rng text
+			String[] passwords = new String[128];
+			for (int i=0; i<passwords.length; i++) {
+				passwords[i] = self.generatePassword("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/".getBytes(), 128);
+			}
 			System.out.println("RNG test: ");
 			for (String password: passwords) {
 				System.out.print(password);
 			}
 			System.out.println();
+			// Misc encryption test
+			System.out.println("Misc data encryption test:");
+			byte[] encryptedData = self.encryptMiscData("This is some misc data that can be of any length.".getBytes());
+			byte[] decryptedData = self.decryptMiscData(encryptedData);
+			System.out.println(b64e.encodeToString(decryptedData));
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}

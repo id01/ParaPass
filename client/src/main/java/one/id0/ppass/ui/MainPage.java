@@ -1,6 +1,7 @@
 package one.id0.ppass.ui;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -12,9 +13,9 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.control.SplitPane;
 //import javafx.scene.control.Alert;
 import javafx.scene.control.Label;
 import javafx.scene.control.TreeItem;
@@ -32,6 +33,7 @@ import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 
 import com.jfoenix.controls.JFXButton;
+import com.jfoenix.controls.JFXTextArea;
 import com.jfoenix.controls.JFXCheckBox;
 import com.jfoenix.controls.JFXSlider;
 import com.jfoenix.controls.JFXDialog;
@@ -48,7 +50,6 @@ import com.jfoenix.controls.RecursiveTreeItem;
 import com.jfoenix.controls.cells.editors.TextFieldEditorBuilder;
 import com.jfoenix.controls.cells.editors.base.GenericEditableTreeTableCell;
 import com.jfoenix.controls.datamodels.treetable.RecursiveTreeObject;
-import com.jfoenix.transitions.hamburger.HamburgerBasicCloseTransition;
 
 import one.id0.ppass.backend.Logger;
 import one.id0.ppass.backend.PPassBackend;
@@ -56,26 +57,28 @@ import one.id0.ppass.utils.UserAccount;
 
 public class MainPage {
 	// Character type string constants
-	final String charTypeLowercase = "abcdefghijklmnopqrstuvwxyz";
-	final String charTypeUppercase = "ACDFEFGHIJKLMNOPQRSTUVWXYZ";
-	final String charTypeDigits = "0123456789";
-	final String charTypeSymbols = "!@#$%^&*()_+-=`~{}[]|\\\'\";:/<>,.";
+	private final String charTypeLowercase = "abcdefghijklmnopqrstuvwxyz";
+	private final String charTypeUppercase = "ACDFEFGHIJKLMNOPQRSTUVWXYZ";
+	private final String charTypeDigits = "0123456789";
+	private final String charTypeSymbols = "!@#$%^&*()_+-=`~{}[]|\\\'\";:/<>,.";
 	
 	// Class variables
 	private PPassBackend backend;
 	private Stage stage;
-	private UserAccount selectedAccount;
-	private JFXTreeTableView<UserAccount> searchTreeTable;
 	private Logger logger;
+	private ArrayList<UserAccount> allAccounts;
+	private JFXTreeTableView<UserAccount> searchTreeTable;
+	private UserAccount selectedAccount;
 	
 	// FXML elements that we need to interact with
 	@FXML private StackPane everythingPane;
+	@FXML private SplitPane containerPane;
 	@FXML private VBox searchMenu;
+	@FXML private JFXTextField searchInput;
 	@FXML private BorderPane accountTitlePane;
 	@FXML private Label accountTitle;
-	@FXML private Text accountDescription;
+	@FXML private JFXTextArea accountDescription;
 	@FXML private JFXButton accountCopyButton;
-	@FXML private JFXTextField searchInput;
 
 	// Constructor
 	public MainPage(Stage stage, PPassBackend backend) throws IOException {
@@ -88,6 +91,13 @@ public class MainPage {
 		Scene scene = new Scene(loader.load());
 		// Current account selected is none
 		selectedAccount = null;
+		// Remove focus from inputs if background is clicked
+		everythingPane.addEventHandler(MouseEvent.MOUSE_PRESSED, e->{
+			everythingPane.requestFocus();
+		});
+		containerPane.addEventHandler(MouseEvent.MOUSE_PRESSED, e->{
+			containerPane.requestFocus();
+		});
 		
 		// Initialize logger. This is SO UGLY!!! But it works :D
 		Logger.Handler onLog = new Logger.Handler() {
@@ -126,7 +136,7 @@ public class MainPage {
 		accountHamburgerActions.setOnMouseClicked(e->{
 			Label selected = accountHamburgerActions.getSelectionModel().getSelectedItem();
 			if (selected == newPasswordButton) {
-				createNewPassword();
+				createNewPassword(selectedAccount.accountName.getValue(), false);
 			} else if (selected == pastPasswordsButton) {
 				showPastPasswords();
 			} else {
@@ -145,9 +155,11 @@ public class MainPage {
         });
 		accountNameColumn.setCellFactory((TreeTableColumn<UserAccount, String> param) ->
         	new GenericEditableTreeTableCell<UserAccount, String>(new TextFieldEditorBuilder()));
-		// Initialize searchTreeTable content
+		
+		// Initialize searchTreeTable content and listeners
 		try {
-			ObservableList<UserAccount> accounts = FXCollections.observableArrayList(backend.getAllAccounts());
+			allAccounts = backend.getAllAccounts();
+			ObservableList<UserAccount> accounts = FXCollections.observableArrayList(allAccounts);
 			final TreeItem<UserAccount> root = new RecursiveTreeItem<UserAccount>(accounts, RecursiveTreeObject::getChildren);
 			searchTreeTable = new JFXTreeTableView<UserAccount>(root);
 			searchTreeTable.getColumns().setAll(accountNameColumn);
@@ -166,7 +178,8 @@ public class MainPage {
 				if (newVal != null) {
 					selectedAccount = newVal.getValue();
 					accountTitle.setText(selectedAccount.accountName.getValue());
-					accountDescription.setText("Descriptions not implemented yet");
+					accountDescription.setText(selectedAccount.description.getValue());
+					accountDescription.setEditable(true);
 					accountCopyButton.setText("Copy Password");
 					accountCopyButton.setDisable(false);
 					accountHamburger.setDisable(false);
@@ -179,9 +192,54 @@ public class MainPage {
 			// The user will still have a semi-functional UI
 		}
 		
+		// Initialize saving mechanism for accountDescription
+		accountDescription.focusedProperty().addListener((o, oldVal, newVal)->{
+			if (newVal) { // We just got focus. Don't do anything
+			} else { // We just lost focus. Save our new description in the background and then update the sidebar.
+				// First, save all vars just in case they change
+				String currentSelectedAccountName = selectedAccount.accountName.getValue();
+				byte[] currentSelectedAccountID = selectedAccount.accountID;
+				String currentSelectedDescription = accountDescription.getText(); 
+				// Create task to update and run it
+				Task<Void> updateTask = new Task<Void>() {
+					public Void call() throws Exception {
+						backend.updateAccountCache(currentSelectedAccountID, true, currentSelectedDescription, -1);
+						try {
+							updateSearchTreeWithAccountAsync(currentSelectedAccountName);
+						} catch (Exception e) {
+							logger.log("Couldn't update search tree: " + e.getMessage());
+						}
+						return null;
+					}
+				};
+				new Thread(updateTask).start();
+			}
+		});
+		
 		// Show our new scene
 		stage.setTitle("ParaPass");
 		stage.setScene(scene);
+	}
+	
+	// Updates searchTreeTable (the sidebar JFXTreeTable)
+	private void updateSearchTreeWithAccountAsync(String accountNameToAdd) throws Exception {
+		// Remove duplicates
+		for (int i=0; i<allAccounts.size(); i++) {
+			if (allAccounts.get(i).accountName.getValue().equals(accountNameToAdd)) {
+				allAccounts.remove(i);
+				i--;
+			}
+		}
+		// Add our new UserAccount and regenerate root 
+		allAccounts.add(backend.getUserAccountObject(accountNameToAdd));
+		ObservableList<UserAccount> accounts = FXCollections.observableArrayList(allAccounts);
+		final TreeItem<UserAccount> root = new RecursiveTreeItem<UserAccount>(accounts, RecursiveTreeObject::getChildren);
+		// Set the root in the UI thread
+		Platform.runLater(new Runnable() {
+			public void run() {
+				searchTreeTable.setRoot(root);
+			}
+		});
 	}
 	
 	// Copies the currently selected account's password if an account is selected
@@ -204,14 +262,24 @@ public class MainPage {
 		}
 	}
 	
-	protected void createNewPassword() {
+	// Creates a new password for a specified account. Takes a UserAccount instance with the account to add. 
+	// Setting addingAccount to true adds the account to the search tree and changes a little of the prompt text.
+	protected void createNewPassword(String accountToAdd, boolean addingAccount) {
+		// Create usedStrings array
+		String[] usedStrings;
+		if (addingAccount) {
+			usedStrings = new String[]{"Add Account", "This will create a new account in the blockchain. "};
+		} else {
+			usedStrings = new String[]{"Change Account Password", "This will generate a new password for your account. "};
+		}
+		
 		// Construct dialog and dialog layout, set heading
 		JFXDialogLayout dialogLayout = new JFXDialogLayout();
 		JFXDialog dialog = new JFXDialog(everythingPane, dialogLayout, JFXDialog.DialogTransition.CENTER);
-		dialogLayout.setHeading(new Text("Change Account Password"));
+		dialogLayout.setHeading(new Text(usedStrings[0]));
 		
 		// Construct dialog body
-		TextFlow dialogBodyText = new TextFlow(new Text("This will generate a new password for your account. " +
+		TextFlow dialogBodyText = new TextFlow(new Text(usedStrings[1] +
 				"Please note that this operation will have a gas cost. Select the character types you " +
 				"want to include in your password below."));
 		Text emptyLine = new Text(" ");
@@ -240,7 +308,7 @@ public class MainPage {
 		HBox loadingBox = new HBox(spinner, loadingText);
 		loadingBox.setAlignment(Pos.CENTER);
 		
-		// Set action for continueButton to get password
+		// Set action for continueButton to put password
 		continueButton.setOnAction((action)->{
 			// Disable both buttons
 			cancelButton.setDisable(true);
@@ -287,18 +355,26 @@ public class MainPage {
 						charlistBuilder.append(charTypeSymbols);
 					}
 					// Run putPassword with inputs
-					backend.putPassword(selectedAccount.accountName.getValue(),
-							charlistBuilder.toString(), passLength);
-					// Set logger back and remove this button. Change cancelButton text to "close"
+					backend.putPassword(accountToAdd, charlistBuilder.toString(), passLength);
+					// Set logger back to normal and do some UI cleanup.
 					backend.setLogger(logger);
 					Platform.runLater(new Runnable() {
 						@Override
 						public void run() {
+							// Change cancelButton text to "close" and remove this button.
 							cancelButton.setText("Close");
 							cancelButton.setDisable(false);
 							dialogLayout.setActions(cancelButton);
 						}
 					});
+					// Add new account to search tree if it is a new one (note: we need to re-generate the root because it's read only)
+					if (addingAccount) {
+						try {
+							updateSearchTreeWithAccountAsync(accountToAdd);
+						} catch (Exception e) {
+							logger.log("Couldn't update search tree: " + e.getMessage());
+						}
+					}
 					return null;
 				}
 			};
@@ -313,6 +389,14 @@ public class MainPage {
 		dialogLayout.setActions(cancelButton, continueButton);
 		// Create dialog and show
 		dialog.show();
+	}
+	
+	// Creates a new password for the account in Input
+	@FXML
+	protected void createNewAccount() {
+		if (!searchInput.getText().equals("")) { // We use toLowerCase() here to remove visual gitches.
+			createNewPassword(searchInput.getText().toLowerCase(), true); // Our backend is already not case-sensitive.
+		}
 	}
 	
 	protected void showPastPasswords() {

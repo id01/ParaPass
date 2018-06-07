@@ -6,7 +6,11 @@ import java.io.IOException;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Pos;
+import javafx.geometry.Insets;
 import javafx.scene.Scene;
+import javafx.scene.paint.Color;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.scene.layout.HBox;
@@ -31,6 +35,7 @@ import one.id0.ppass.backend.PPassBackend;
 
 public class LoginForm {
 	// Constant for PPassNetwork address
+	final private String thatGrayShade = "#5B5B5B";
 	final private String ppassAddress = "0xf09d7f2623d109a0567fc377f080200c61f7bad7";
 	
 	// Class variables
@@ -57,6 +62,7 @@ public class LoginForm {
 	public LoginForm(Stage stage) throws IOException {
 		// Copy over stage
 		this.stage = stage;
+		
 		// Initialize login form
 		FXMLLoader loader = new FXMLLoader(getClass().getResource("LoginForm.fxml"));
 		loader.setController(this);
@@ -66,7 +72,18 @@ public class LoginForm {
 		// Construct loading box
 		JFXSpinner loadingSpinner = new JFXSpinner();
 		loadingText = new Text("Please wait...");
+		HBox.setMargin(loadingText, new Insets(32,32,32,32));
 		loadingBox = new HBox(loadingSpinner, loadingText);
+		loadingBox.setAlignment(Pos.CENTER);
+		
+		// Toggle login button status on username or password input change
+		usernameInput.textProperty().addListener((o, oldVal, newVal)->toggleLoginButtonState());
+		passwordInput.textProperty().addListener((o, oldVal, newVal)->toggleLoginButtonState());
+		// Remove focus from inputs if background is clicked
+		everythingPane.addEventHandler(MouseEvent.MOUSE_PRESSED, e->{
+			everythingPane.requestFocus();
+		});
+		
 		// Initialize logger. This is SO UGLY!!! But it works :D
 		Logger.Handler onLog = new Logger.Handler() {
 			public Runnable getRunnable(String toLog) {
@@ -74,6 +91,7 @@ public class LoginForm {
 					public void run() {
 						Platform.runLater(new Runnable() {
 							public void run() {
+								// Update UI with log string
 								System.out.println(toLog);
 								loadingText.setText(toLog);
 							}
@@ -82,7 +100,34 @@ public class LoginForm {
 				};
 			}
 		};
-		logger = new Logger(onLog, onLog);
+		Logger.Handler onErr = new Logger.Handler() {
+			public Runnable getRunnable(String toLog) {
+				return new Runnable() {
+					public void run() {
+						Platform.runLater(new Runnable() {
+							public void run() {
+								// Error! Remove loading circle and allow the user to escape
+								System.out.println(toLog);
+								loadingText.setText(toLog);
+								loadingBox.getChildren().clear();
+								JFXButton backButton = new JFXButton("Return to Login");
+								backButton.setTextFill(Color.web(thatGrayShade));
+								backButton.setOnAction(e->{
+									try {
+										new LoginForm(stage);
+									} catch (IOException ee) {
+										System.out.println("Unexpected exception: " + ee.getMessage() +
+												"\nStack trace: \n" + ee.getStackTrace());
+									}
+								});
+								loadingBox.getChildren().setAll(loadingText, backButton);
+							}
+						});
+					}
+				};
+			}
+		};
+		logger = new Logger(onLog, onErr);
 	}
 	
 	// Function that creates PPassBackend initialization task template without onSuccess
@@ -136,8 +181,18 @@ public class LoginForm {
 		new Thread(initTask).start();
 	}
 	
+	// Function that toggles the disabled state of loginButton
+	protected void toggleLoginButtonState() {
+		boolean notAllFieldsFilled = (keystoreFilePath == null || keystorePassword == null ||
+				usernameInput.getText().equals("") || passwordInput.getText().equals(""));
+		loginButton.setDisable(notAllFieldsFilled);
+	}
+	
 	// Function that selects a keystore file
 	@FXML protected void selectKeystoreFile(ActionEvent event) {
+		// Reset keystoreFilePath and keystorePassword
+		keystoreFilePath = null;
+		keystorePassword = null;
 		// Get keystore file path from user
 		FileChooser chooser = new FileChooser();
 		chooser.setTitle("Select Keystore");
@@ -182,32 +237,34 @@ public class LoginForm {
 				// Construct dialog action to update the keystore file path and label content
 				JFXButton continueButton = new JFXButton("Continue");
 				continueButton.setOnAction((action)->{
-					// Check if we can decrypt the wallet file
-					boolean canDecryptWalletFile = false;
+					// Check if we can decrypt the wallet file and act accordingly
 					try {
-						canDecryptWalletFile = PPassBackend.checkWalletFile(chosenFilePath, keystorePasswordInput.getText());
+						boolean canDecryptWalletFile = PPassBackend.checkWalletFile(chosenFilePath,
+								keystorePasswordInput.getText());
+						// If we can, set keystoreFilePath, update label, and enable login button.
+						// Otherwise, show the user that the password is invalid.
+						if (canDecryptWalletFile) {
+							keystoreFilePath = chosenFilePath;
+							keystoreFileLabel.setText(chosenFilePath);
+							keystorePassword = keystorePasswordInput.getText();
+						} else {
+							keystoreFileLabel.setText("Invalid Password");
+						}
 					} catch (IOException ee) {
 						keystoreFileLabel.setText("Couldn't open file");
-						return;
 					}
-					// If we can, set keystoreFilePath and update label. Otherwise, show the user that the password is invalid
-					if (canDecryptWalletFile) {
-						keystoreFilePath = chosenFilePath;
-						keystoreFileLabel.setText(chosenFilePath);
-						keystorePassword = keystorePasswordInput.getText();
-					} else {
-						keystoreFileLabel.setText("Invalid Password");
-					}
-					// Close the dialog
+					// Close the dialog, toggle login button state
 					dialog.close();
+					toggleLoginButtonState();
 				});
 				dialogLayout.setActions(continueButton);
 				// Create dialog and show
 				dialog.show();
-			} else { // If keystore doesn't have a password, update the keystore information directly.
+			} else { // If keystore doesn't have a password, update the keystore information directly. Toggle login button state
 				keystoreFilePath = chosenFilePath;
 				keystoreFileLabel.setText(chosenFilePath);
 				keystorePassword = "";
+				toggleLoginButtonState();
 			}
 		});
 		new Thread(checkWalletFileTask).start();

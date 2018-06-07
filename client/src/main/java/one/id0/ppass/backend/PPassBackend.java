@@ -32,6 +32,7 @@ public class PPassBackend {
 	private PPassNetwork ppass;
 	private BigInteger gasPrice, maxGas;
 	private User user;
+	private Cache userCache;
 	private Logger logger;
 
 	// Connect constructor. Connects to or creates a PPassNetwork address, and also prepares other backends
@@ -113,11 +114,17 @@ public class PPassBackend {
 	// Setup user account
 	public void userSetup(String username, String masterpass) throws Exception {
 		user = new User(ppass, username, masterpass, true, logger);
+		// Connect to Cache
+		logger.log("Connecting to cache...");
+		userCache = new Cache(user);
 	}
 
 	// Login as user
 	public void userLogin(String username, String masterpass) throws Exception {
 		user = new User(ppass, username, masterpass, false, logger);
+		// Connect to Cache
+		logger.log("Connecting to cache...");
+		userCache = new Cache(user);
 	}
 	
 	// Check if logged in. If not, throw an exception.
@@ -154,16 +161,54 @@ public class PPassBackend {
 		this.user.setLogger(logger);
 	}
 	
-	// Gets all accounts and their respective block heights
+	// Gets an account hash from a string
+	public byte[] getAccountHash(String accountname) {
+		return user.getAccountHash(accountname);
+	}
+	
+	// Gets a UserAccount object from an account name
+	public UserAccount getUserAccountObject(String accountname) throws Exception {
+		// Create account in cache if it doesn't exist
+		logger.log("Creating user account in cache if it doesn't exist...");
+		byte[] aid = user.getAccountHash(accountname);
+		try {
+			userCache.cacheNewAccount(aid);
+		} catch (Exception e) {
+			logger.log("Account already exists!");
+		}
+		// Get account from cache (may throw exception)
+		return userCache.getUserAccount(aid, accountname);
+	}
+	
+	// Gets all accounts as UserAccount objects and cache them all (lol)
 	public ArrayList<UserAccount> getAllAccounts() throws Exception {
 		// Get all accounts for user
 		ArrayList<byte[]> allAccountIDs = user.getAllAccounts();
+		// Loop through them, getting UserAccount objects for all (with the side effect of caching them)
 		ArrayList<UserAccount> allAccounts = new ArrayList<UserAccount>();
 		for (byte[] accountID : allAccountIDs) {
 			String accountName = user.getPasswordById(accountID)[0];
-			allAccounts.add(new UserAccount(accountID, accountName));
+			allAccounts.add(getUserAccountObject(accountName));
 		}
 		return allAccounts;
+	}
+	
+	// Wrapper around Cache object. Updates access timestamp if updateAccessTimestamp is true, description if description
+	// is not null, and pinned status if pinnedStatus is 0 (false) or more (true).
+	public void updateAccountCache(byte[] aid, boolean updateAccessTimestamp, String description, int pinnedStatus) throws Exception {
+		if (updateAccessTimestamp) {
+			userCache.updateAccessTimestamp(aid);
+		}
+		if (description != null) {
+			userCache.updateDescription(aid, description);
+		}
+		if (pinnedStatus < 0) {
+			if (pinnedStatus == 0) {
+				userCache.updatePinnedStatus(aid, false);
+			} else {
+				userCache.updatePinnedStatus(aid, true);
+			}
+		}
 	}
 
 	// Main function
@@ -225,6 +270,22 @@ public class PPassBackend {
 					ArrayList<UserAccount> accounts = self.getAllAccounts();
 					for (UserAccount account : accounts) {
 						System.out.println(account.accountID + ": " + account.accountName);
+					}
+				} else if (line[0].equals("updatecache")) { // Updates the account data cache. Usage: updatecache 
+															// [account] [description] [pinnedStatus] 
+					if (line.length > 3) {
+						self.updateAccountCache(self.getAccountHash(line[1]), true, line[2], Integer.parseInt(line[3]));
+					} else {
+						System.out.println("Usage: updatecache [account] [description] [pinnedStatus]");
+					}
+				} else if (line[0].equals("readcache")) { // Reads an account in the cache. Usage: readcache [account]
+					if (line.length > 1) {
+						UserAccount acc = self.getUserAccountObject(line[1]);
+						System.out.println("Description: " + acc.description.getValue());
+						System.out.println("Timestamp: " + acc.timestamp.getValue());
+						System.out.println("Pinned: " + acc.pinned.getValue());
+					} else {
+						System.out.println("Usage: readcache [account]");
 					}
 				} else if (line[0].equals("exit")) {
 					sc.close();

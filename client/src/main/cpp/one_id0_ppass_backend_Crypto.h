@@ -63,6 +63,22 @@ JNIEXPORT jobjectArray JNICALL Java_one_id0_ppass_backend_Crypto_decryptAccountP
 JNIEXPORT jstring JNICALL Java_one_id0_ppass_backend_Crypto_generateRandomPassword
   (JNIEnv *, jobject, jbyteArray, jint);
 
+/*
+ * Class:     one_id0_ppass_backend_Crypto
+ * Method:    encryptMiscData
+ * Signature: ([B[B)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_backend_Crypto_encryptMiscData
+  (JNIEnv *, jobject, jbyteArray, jbyteArray);
+
+/*
+ * Class:     one_id0_ppass_backend_Crypto
+ * Method:    decryptMiscData
+ * Signature: ([B[B)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_backend_Crypto_decryptMiscData
+  (JNIEnv *, jobject, jbyteArray, jbyteArray);
+
 #ifdef __cplusplus
 }
 #endif

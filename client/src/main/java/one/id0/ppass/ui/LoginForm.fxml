@@ -46,7 +46,7 @@
                               </JFXCheckBox>
                            </left>
                            <right>
-                              <JFXButton fx:id="loginButton" onAction="#handleLogin" prefHeight="36.0" prefWidth="87.0" style="-fx-background-color: #335577;" text="Login" BorderPane.alignment="CENTER" />
+                              <JFXButton fx:id="loginButton" disable="true" onAction="#handleLogin" prefHeight="36.0" prefWidth="87.0" style="-fx-background-color: #335577;" text="Login" BorderPane.alignment="CENTER" />
                            </right>
                         </BorderPane>
                         <Pane prefHeight="200.0" prefWidth="200.0" GridPane.rowIndex="2">

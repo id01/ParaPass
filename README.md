@@ -23,12 +23,19 @@ Passwords for the paranoid
 	* Run `make` in `client` to build crypto binaries
 	* Build PPassBackend and run for CLI
 
+### Todo
+* Remove password-change event to reduce gas cost, "Past Passwords" feature - both backend and frontend - by caching encrypted passwords on the user-side with the SQLite database
+* "Remember me" feature using system keyring (implementations may be different for different platforms)
+* Minimize to system tray upon close, re-open upon clicking on system tray
+
 ### Changelog
+* Version 0.0.3 (06/06/2018)
+	* SQLite integration
+	* (Single-Encrypted) descriptions!!! Timestamps!!! Pins!!!
 * Version 0.0.2 (06/05/2018)
 	* Moved random password generation to CryptoPP::GenerateWord
-	* Added UI (using JavaFX)
+	* Added GUI (using JavaFX)
 	* Added "get all accounts" functionality to smart contract
-	* More UI stuff
-	* Still need to connect ADD functionality to UI element
+	* Fixed some GUI quirks
 * Version 0.0.1 (06/01/2018)
 	* Rewrote everything a lot of times and weeded out a lot of bugs

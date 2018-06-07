@@ -83,6 +83,24 @@ public class User {
 		return allAccounts;
 	}
 	
+	// Gets this user's user hash
+	public byte[] getUserHash() {
+		return userhash;
+	}
+	
+	// Gets an account hash
+	public byte[] getAccountHash(String accountname) {
+		return crypto.hashAccountName(accountname);
+	}
+	
+	// Encrypts/Decrypts an account description
+	public byte[] encryptAccountDescription(String description) {
+		return crypto.encryptMiscData(description.getBytes());
+	}
+	public String decryptAccountDescription(byte[] encrypted) throws Exception {
+		return new String(crypto.decryptMiscData(encrypted));
+	}
+	
 	// Sets the logger
 	public void setLogger(Logger logger) {
 		this.logger = logger;
