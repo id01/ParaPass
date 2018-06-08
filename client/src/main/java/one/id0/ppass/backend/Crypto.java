@@ -5,11 +5,12 @@ import java.util.Base64;
 // Wrapper class for C++ Cryptography backend
 public class Crypto {
 	// Constants
-	private final int PWHASHLEN = 8;
-	private final int USERHASHLEN = 32;
-	private final int ACCOUNTHASHLEN = 16;
-	private final int BLAKE2HASHLEN = 32;
-	private final int PRNGSTATESIZE = 32;
+	public static final int PWHASHLEN = 8;
+	public static final int USERHASHLEN = 32;
+	public static final int ACCOUNTHASHLEN = 16;
+	public static final int BLAKE2HASHLEN = 32;
+	public static final int PRNGSTATESIZE = 32;
+	public static final int CIPHERTEXTLEN = 160;
 
 	// Native methods
 	private native byte[] blake2b(byte[] javaTohash, int digest_len);

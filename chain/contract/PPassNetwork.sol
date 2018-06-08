@@ -1,9 +1,6 @@
 pragma solidity ^0.4.20;
 
 contract PPassNetwork {
-	/* Event for changing a password */
-	event changedPassword(bytes32 indexed uid, bytes16 indexed aid, bytes newPass);
-
 	/* This is a struct for a single user */
 	struct User {
 		address owner; // Owner of this user account
@@ -50,8 +47,6 @@ contract PPassNetwork {
 		}
 		/* Put password */
 		users[_uid].passwords[_aid] = newPass;
-		/* Trigger change password event */
-		emit changedPassword(_uid, _aid, newPass);
 		return true;
 	}
 

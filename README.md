@@ -1,5 +1,5 @@
 ### ParaPass
-Passwords for the paranoid
+Passwords for the Paranoid
 
 ### Features
 * Passwords are stored securly in an Ethereum Blockchain so that past passwords can always be recovered, even if a hacker obtains a private key.
@@ -24,11 +24,13 @@ Passwords for the paranoid
 	* Build PPassBackend and run for CLI
 
 ### Todo
-* Remove password-change event to reduce gas cost, "Past Passwords" feature - both backend and frontend - by caching encrypted passwords on the user-side with the SQLite database
 * "Remember me" feature using system keyring (implementations may be different for different platforms)
 * Minimize to system tray upon close, re-open upon clicking on system tray
 
 ### Changelog
+* Version 0.0.4 (06/07/2018)
+	* Removed password-change event to reduce gas cost.
+	* "Past Passwords" feature added by caching encrypted passwords on the user-side with the SQLite database
 * Version 0.0.3 (06/06/2018)
 	* SQLite integration
 	* (Single-Encrypted) descriptions!!! Timestamps!!! Pins!!!

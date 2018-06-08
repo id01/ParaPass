@@ -12,9 +12,9 @@ import com.jfoenix.controls.datamodels.treetable.RecursiveTreeObject;
 
 public class UserAccount extends RecursiveTreeObject<UserAccount> {
 	// Final objects
-	StringProperty neverstr = new SimpleStringProperty("Never");
-	StringProperty emptystr = new SimpleStringProperty("");
-	StringProperty pinnedstr = new SimpleStringProperty("pinned");
+	public final StringProperty neverstr = new SimpleStringProperty("Never");
+	public final StringProperty emptystr = new SimpleStringProperty("");
+	public final StringProperty pinnedstr = new SimpleStringProperty("pinned");
 	
 	// Properties
 	public byte[] accountID;
@@ -40,7 +40,7 @@ public class UserAccount extends RecursiveTreeObject<UserAccount> {
 		if (description != null) {
 			this.description = new SimpleStringProperty(description);
 		} else {
-			this.description = new SimpleStringProperty("");
+			this.description = emptystr;
 		}
 		// Initialize timestamp string and timestamp.
 		if (timestamp != 0) {

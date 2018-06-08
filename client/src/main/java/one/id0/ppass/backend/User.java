@@ -9,22 +9,22 @@ import one.id0.ppass.gen.PPassNetwork;
 // User class for a specific user in a PPassNetwork.
 public class User {
 	// Global variables
-	private Crypto crypto;
-	private PPassNetwork ppass;
-	private Logger logger;
-	private byte[] userhash;
+	protected Crypto crypto;
+	protected PPassNetwork ppass;
+	protected Logger logger;
+	protected byte[] userhash;
 	
 	// Constructor. Takes in the PPassNetwork connection the user is on
 	// the username, the password, and whether we want to create a user or log into one 
 	public User(PPassNetwork ppass, String username, String masterpass, boolean createmode, Logger logger) throws Exception {
-		// Copy over logger
+		// Copy over logger, initialize cache to null
 		this.logger = logger;
 		// Generate keys in new Crypto class and copy over ppass to global.
 		logger.log("Generating keys...");
 		crypto = new Crypto(username, masterpass);
 		this.ppass = ppass;
 		// Get userhash and masterkeyhash
-		userhash = crypto.getUserHash();
+		this.userhash = crypto.getUserHash();
 		byte[] masterkeyhash = crypto.getMasterKeyHash();
 		// If we are creating a user account, attempt to create it.
 		if (createmode) {
@@ -46,32 +46,61 @@ public class User {
 		logger.log("Logged in");
 	}
 	
-	// Puts a password
-	public String putPassword(String accountname, byte[] charlist, int length) throws Exception {
-		// Generate password and ciphertext
+	// Puts a password. Returns plaintext password, and writes ciphertext to ctout if ctout isn't null.
+	public String putPassword(String accountname, byte[] charlist, int length, byte[] ctout) throws Exception {
+		// Generate password, ciphertext, and account ID
 		logger.log("Generating password...");
 		String pass = crypto.generatePassword(charlist, length);
 		byte[] ciphertext = crypto.encrypt(accountname, pass);
+		byte[] accounthash = crypto.hashAccountName(accountname);
 		// Attempt to create user account and then check login status
 		logger.log("Attempting to put password into blockchain...");
-		TransactionReceipt tx_receipt = ppass.putPassword(crypto.getUserHash(), crypto.hashAccountName(accountname), ciphertext).send();
+		TransactionReceipt tx_receipt = ppass.putPassword(userhash, accounthash, ciphertext).send();
 		logger.log("Success! Tranaction hash: " + tx_receipt.getTransactionHash());
+		// Copy ciphertext to ctout if it isn't null
+		if (ctout != null) {
+			System.arraycopy(ciphertext, 0, ctout, 0, ciphertext.length);
+		}
 		// Return plaintext password
 		return pass;
 	}
 	
-	// Gets a password and account name in the form {accountname, password} by ID
-	public String[] getPasswordById(byte[] accounthash) throws Exception {
-		// Get ciphertext and decrypt
+	// Puts a password without ctout (null as default)
+	public String putPassword(String accountname, byte[] charlist, int length) throws Exception {
+		return putPassword(accountname, charlist, length, null);
+	}
+	
+	// Gets a password and account name in the form {accountname, password} by ID,
+	// and writes ciphertext to ctout if ctout isn't null.
+	public String[] getPassword(byte[] accounthash, byte[] ctout) throws Exception {
+		// Get ciphertext
 		logger.log("Getting password...");
-		byte[] ciphertext = ppass.getPassword(crypto.getUserHash(), accounthash).send();
+		byte[] ciphertext = ppass.getPassword(userhash, accounthash).send();
+		// Copy ciphertext to ctout if it isn't null
+		if (ctout != null) {
+			System.arraycopy(ciphertext, 0, ctout, 0, ciphertext.length);
+		}
+		// Make sure ciphertext exists (if it's all 0's that means it doesn't.)
+		boolean ciphertextExists = false;
+		for (byte b : ciphertext) {
+			ciphertextExists = (ciphertextExists || b!=0);
+		}
+		if (!ciphertextExists) {
+			throw new Exception("Account doesn't exist!");
+		}
+		// Decrypt and return
 		logger.log("Done!");
 		return crypto.decrypt(ciphertext);
 	}
 	
+	// Gets a password without ctout (null as default)
+	public String[] getPassword(byte[] accounthash) throws Exception {
+		return getPassword(accounthash);
+	}
+	
 	// Gets a password and account name in the form {accountname, password}
 	public String[] getPassword(String accountname) throws Exception {
-		return getPasswordById(crypto.hashAccountName(accountname));
+		return getPassword(crypto.hashAccountName(accountname));
 	}
 	
 	// Gets all accounts

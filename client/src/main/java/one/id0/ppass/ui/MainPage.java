@@ -19,14 +19,12 @@ import javafx.scene.control.SplitPane;
 //import javafx.scene.control.Alert;
 import javafx.scene.control.Label;
 import javafx.scene.control.TreeItem;
-//import javafx.scene.control.TreeTableCell;
 import javafx.scene.control.TreeTableColumn;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.stage.Stage;
 import javafx.application.Platform;
-//import javafx.beans.property.StringProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -54,6 +52,7 @@ import com.jfoenix.controls.datamodels.treetable.RecursiveTreeObject;
 import one.id0.ppass.backend.Logger;
 import one.id0.ppass.backend.PPassBackend;
 import one.id0.ppass.utils.UserAccount;
+import one.id0.ppass.utils.UserPassword;
 
 public class MainPage {
 	// Character type string constants
@@ -450,7 +449,15 @@ public class MainPage {
 		}
 	}
 	
+	// Shows past passwords using a PastPasswordPage on a popup stage
 	protected void showPastPasswords() {
-		
+		try {
+			ArrayList<UserPassword> pastPasswords = backend.getPastPasswords(selectedAccount.accountID);
+			Stage popupStage = new Stage();
+			new PastPasswordPage(popupStage, pastPasswords);
+			popupStage.show();
+		} catch (Exception e) {
+			logger.log("Failed to show past passwords: " + e.getMessage());
+		}
 	}
 }

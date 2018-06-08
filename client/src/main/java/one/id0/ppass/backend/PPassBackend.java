@@ -18,6 +18,7 @@ import org.web3j.tx.response.PollingTransactionReceiptProcessor;
 
 import one.id0.ppass.gen.PPassNetwork;
 import one.id0.ppass.utils.UserAccount;
+import one.id0.ppass.utils.UserPassword;
 
 // Wrapper class for entire backend and CLI application
 public class PPassBackend {
@@ -31,8 +32,7 @@ public class PPassBackend {
 	private Credentials credentials;
 	private PPassNetwork ppass;
 	private BigInteger gasPrice, maxGas;
-	private User user;
-	private Cache userCache;
+	private CachedUser user;
 	private Logger logger;
 
 	// Connect constructor. Connects to or creates a PPassNetwork address, and also prepares other backends
@@ -71,6 +71,7 @@ public class PPassBackend {
 		logger.log("Connected");
 	}
 	
+	/**** Web3j wrappers ****/
 	// Create a wallet file in the given directory with given password
 	public static String createWalletFile(String keystoreDir, String password) throws Exception {
 		String path = keystoreDir;
@@ -111,20 +112,17 @@ public class PPassBackend {
 		}
 	}
 
+	/**** User object wrappers ****/
 	// Setup user account
 	public void userSetup(String username, String masterpass) throws Exception {
-		user = new User(ppass, username, masterpass, true, logger);
-		// Connect to Cache
-		logger.log("Connecting to cache...");
-		userCache = new Cache(user);
+		// Add user
+		user = new CachedUser(ppass, username, masterpass, true, logger);
 	}
 
 	// Login as user
 	public void userLogin(String username, String masterpass) throws Exception {
-		user = new User(ppass, username, masterpass, false, logger);
-		// Connect to Cache
-		logger.log("Connecting to cache...");
-		userCache = new Cache(user);
+		// Login as user
+		user = new CachedUser(ppass, username, masterpass, false, logger);
 	}
 	
 	// Check if logged in. If not, throw an exception.
@@ -152,7 +150,7 @@ public class PPassBackend {
 	public String[] getPassword(byte[] accountID) throws Exception {
 		// Check login, get password by ID
 		checkLogin();
-		return user.getPasswordById(accountID);
+		return user.getPassword(accountID);
 	}
 	
 	// Sets logger object
@@ -166,19 +164,20 @@ public class PPassBackend {
 		return user.getAccountHash(accountname);
 	}
 	
+	/**** CachedUser object wrappers ****/
 	// Gets a UserAccount object from an account name
 	public UserAccount getUserAccountObject(String accountname) throws Exception {
 		// Create account in cache if it doesn't exist
 		logger.log("Creating user account in cache if it doesn't exist...");
 		byte[] aid = user.getAccountHash(accountname);
 		try {
-			userCache.cacheNewAccount(aid);
+			user.cacheNewAccount(aid);
 			logger.log("User account inserted into cache");
 		} catch (Exception e) {
 			logger.log("Account already exists!");
 		}
 		// Get account from cache (may throw exception)
-		return userCache.getUserAccount(aid, accountname);
+		return user.getUserAccount(aid, accountname);
 	}
 	
 	// Gets all accounts as UserAccount objects and cache them all (lol)
@@ -188,28 +187,36 @@ public class PPassBackend {
 		// Loop through them, getting UserAccount objects for all (with the side effect of caching them)
 		ArrayList<UserAccount> allAccounts = new ArrayList<UserAccount>();
 		for (byte[] accountID : allAccountIDs) {
-			String accountName = user.getPasswordById(accountID)[0];
+			String accountName = user.getPassword(accountID)[0];
 			allAccounts.add(getUserAccountObject(accountName));
 		}
 		return allAccounts;
 	}
 	
-	// Wrapper around Cache object. Updates access timestamp if updateAccessTimestamp is true, description if description
+	// Updates access timestamp if updateAccessTimestamp is true, description if description
 	// is not null, and pinned status if pinnedStatus is 0 (false) or more (true).
 	public void updateAccountCache(byte[] aid, boolean updateAccessTimestamp, String description, int pinnedStatus) throws Exception {
 		if (updateAccessTimestamp) {
-			userCache.updateAccessTimestamp(aid);
+			user.updateAccessTimestamp(aid);
 		}
 		if (description != null) {
-			userCache.updateDescription(aid, description);
+			user.updateDescription(aid, description);
 		}
 		if (pinnedStatus >= 0) {
 			if (pinnedStatus == 0) {
-				userCache.updatePinnedStatus(aid, false);
+				user.updatePinnedStatus(aid, false);
 			} else {
-				userCache.updatePinnedStatus(aid, true);
+				user.updatePinnedStatus(aid, true);
 			}
 		}
+	}
+	
+	// Gets an ArrayList of all the user's past passwords for an account cached in database
+	public ArrayList<UserPassword> getPastPasswords(byte[] aid) throws Exception {
+		return user.getPastPasswords(aid);
+	}
+	public ArrayList<UserPassword> getPastPasswords(String accountName) throws Exception {
+		return getPastPasswords(user.getAccountHash(accountName));
 	}
 
 	// Main function
@@ -287,6 +294,17 @@ public class PPassBackend {
 						System.out.println("Pinned: " + acc.pinned.getValue());
 					} else {
 						System.out.println("Usage: readcache [account]");
+					}
+				} else if (line[0].equals("getcachedpasswords")) { // Gets past passwords for an account that were cached
+																   // in the database. Usage: getcachedpasswords [account]
+					if (line.length > 1) {
+						ArrayList<UserPassword> pastPasswords = self.getPastPasswords(line[1]);
+						for (UserPassword pass : pastPasswords) {
+							System.out.println("Account name: " + pass.accountName + ", password: " + pass.pass +
+									", timestamp: " + pass.getTimestamp());
+						}
+					} else {
+						System.out.println("Usage: getcachedpasswords [account]");
 					}
 				} else if (line[0].equals("exit")) {
 					sc.close();
