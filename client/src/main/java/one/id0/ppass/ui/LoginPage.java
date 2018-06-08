@@ -5,10 +5,9 @@ import java.io.IOException;
 
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
 import javafx.geometry.Pos;
 import javafx.geometry.Insets;
-import javafx.scene.Scene;
+//import javafx.scene.Scene;
 import javafx.scene.paint.Color;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.text.Text;
@@ -33,16 +32,14 @@ import com.jfoenix.controls.JFXSpinner;
 import one.id0.ppass.backend.Logger;
 import one.id0.ppass.backend.PPassBackend;
 
-public class LoginForm {
+public class LoginPage extends Page {
 	// Constant for PPassNetwork address
 	final private String thatGrayShade = "#5B5B5B";
 	final private String ppassAddress = "0xf09d7f2623d109a0567fc377f080200c61f7bad7";
 	
 	// Class variables
-	private Stage stage;
 	private String keystoreFilePath;
 	private String keystorePassword;
-	private Logger logger;
 	private HBox loadingBox;
 	private Text loadingText;
 	
@@ -59,16 +56,10 @@ public class LoginForm {
 	private PPassBackend backend;
 	
 	// Constructor
-	public LoginForm(Stage stage) throws IOException {
-		// Copy over stage
-		this.stage = stage;
+	public LoginPage(Stage stage) throws IOException {
+		// Initialize page and logger
+		super(stage, "LoginPage.fxml", "ParaPass - Login");
 		
-		// Initialize login form
-		FXMLLoader loader = new FXMLLoader(getClass().getResource("LoginForm.fxml"));
-		loader.setController(this);
-		Scene scene = new Scene(loader.load());
-		stage.setTitle("ParaPass - Login");
-		stage.setScene(scene);
 		// Construct loading box
 		JFXSpinner loadingSpinner = new JFXSpinner();
 		loadingText = new Text("Please wait...");
@@ -114,7 +105,7 @@ public class LoginForm {
 								backButton.setTextFill(Color.web(thatGrayShade));
 								backButton.setOnAction(e->{
 									try {
-										new LoginForm(stage);
+										new LoginPage(stage);
 									} catch (IOException ee) {
 										System.out.println("Unexpected exception: " + ee.getMessage() +
 												"\nStack trace: \n" + ee.getStackTrace());
@@ -128,6 +119,9 @@ public class LoginForm {
 			}
 		};
 		logger = new Logger(onLog, onErr);
+		
+		// Take the stage
+		super.enterStage();
 	}
 	
 	// Function that creates PPassBackend initialization task template without onSuccess

@@ -59,7 +59,7 @@ public class CachedUser extends User {
 	// Puts a password and caches it too
 	public String putPassword(String accountname, byte[] charlist, int length) throws Exception {
 		byte[] ciphertext = new byte[Crypto.CIPHERTEXTLEN];
-		String result = super.putPassword(accountname, charlist, length);
+		String result = super.putPassword(accountname, charlist, length, ciphertext);
 		addPastPassword(super.getAccountHash(accountname), ciphertext);
 		return result;
 	}

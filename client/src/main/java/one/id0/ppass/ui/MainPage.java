@@ -5,10 +5,9 @@ import java.util.ArrayList;
 
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
 import javafx.geometry.Pos;
 import javafx.geometry.Insets;
-import javafx.scene.Scene;
+//import javafx.scene.Scene;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.scene.layout.HBox;
@@ -54,20 +53,14 @@ import one.id0.ppass.backend.PPassBackend;
 import one.id0.ppass.utils.UserAccount;
 import one.id0.ppass.utils.UserPassword;
 
-public class MainPage {
-	// Character type string constants
-	private final String charTypeLowercase = "abcdefghijklmnopqrstuvwxyz";
-	private final String charTypeUppercase = "ACDFEFGHIJKLMNOPQRSTUVWXYZ";
-	private final String charTypeDigits = "0123456789";
-	private final String charTypeSymbols = "!@#$%^&*()_+-=`~{}[]|\\\'\";:/<>,.";
-	
+public class MainPage extends Page {	
 	// Class variables
 	private PPassBackend backend;
-	private Stage stage;
-	private Logger logger;
 	private TreeItem<UserAccount> accountRoot;
 	private JFXTreeTableView<UserAccount> searchTreeTable;
 	private UserAccount selectedAccount;
+	private JFXHamburger accountHamburger;
+	private JFXListView<Label> accountHamburgerActions;
 	
 	// FXML elements that we need to interact with
 	@FXML private StackPane everythingPane;
@@ -81,13 +74,12 @@ public class MainPage {
 
 	// Constructor
 	public MainPage(Stage stage, PPassBackend backend) throws IOException {
-		// Copy over stage and backend
-		this.stage = stage;
+		// Initialize page and logger
+		super(stage, "MainPage.fxml", "ParaPass");
+		backend.setLogger(logger);
+		
+		// Copy over backend
 		this.backend = backend;
-		// Initialize main page
-		FXMLLoader loader = new FXMLLoader(getClass().getResource("MainPage.fxml"));
-		loader.setController(this);
-		Scene scene = new Scene(loader.load());
 		// Current account selected is none
 		selectedAccount = null;
 		// Remove focus from inputs if background is clicked
@@ -98,31 +90,48 @@ public class MainPage {
 			containerPane.requestFocus();
 		});
 		
-		// Initialize logger. This is SO UGLY!!! But it works :D
-		Logger.Handler onLog = new Logger.Handler() {
-			public Runnable getRunnable(String toLog) {
-				return new Runnable() {
-					public void run() {
-						Platform.runLater(new Runnable() {
-							public void run() {
-								System.out.println(toLog);
-							}
-						});
+		// Initialize accountHamburger and searchTreeTable
+		initAccountHamburger();
+		initSearchTreeTable();
+		
+		// Initialize saving mechanism for accountDescription
+		accountDescription.focusedProperty().addListener((o, oldVal, newVal)->{
+			if (newVal) { // We just got focus. Don't do anything
+			} else { // We just lost focus. Save our new description in the background and then update the sidebar.
+				// First, save all vars just in case they change
+				String currentSelectedAccountName = selectedAccount.accountName.getValue();
+				byte[] currentSelectedAccountID = selectedAccount.accountID;
+				String currentSelectedDescription = accountDescription.getText(); 
+				// Create task to update and run it
+				Task<Void> updateTask = new Task<Void>() {
+					public Void call() throws Exception {
+						backend.updateAccountCache(currentSelectedAccountID, true, currentSelectedDescription, -1);
+						try {
+							updateSearchTreeWithAccountAsync(currentSelectedAccountName);
+						} catch (Exception e) {
+							logger.log("Couldn't update search tree: " + e.getMessage());
+						}
+						return null;
 					}
 				};
+				new Thread(updateTask).start();
 			}
-		};
-		logger = new Logger(onLog, onLog);
-		backend.setLogger(logger);
+		});
 		
+		// Show our new scene
+		super.enterStage();
+	}
+	
+	// Initializes accountHamburger
+	public void initAccountHamburger() {
 		// Create accountHamburger actions (new password, pin password, past passwords)
-		JFXListView<Label> accountHamburgerActions = new JFXListView<Label>();
+		accountHamburgerActions = new JFXListView<Label>();
 		Label newPasswordButton = new Label("New password");
 		Label pinPasswordButton = new Label("Pin password"); // Note: This can also become the "Unpin password" button
 		Label pastPasswordsButton = new Label("Past passwords");
 		accountHamburgerActions.getItems().setAll(newPasswordButton, pinPasswordButton, pastPasswordsButton);
 		// Create wrappers for JFXListView
-		JFXHamburger accountHamburger = new JFXHamburger();
+		accountHamburger = new JFXHamburger();
 		accountHamburger.getStyleClass().add("darkHamburger");
 		accountHamburger.setDisable(true);
 		JFXPopup accountHamburgerPopup = new JFXPopup(accountHamburgerActions);
@@ -146,6 +155,12 @@ public class MainPage {
 			}
 			accountHamburgerPopup.hide();
 		});
+	}
+	
+	// Initializes searchTreeTable (the JFXTreeTable on the left)
+	private void initSearchTreeTable() {
+		// Get pinPasswordButton
+		Label pinPasswordButton = accountHamburgerActions.getItems().get(1);
 		
 		// Initialize searchTreeTable columns
 		// Account name column
@@ -227,34 +242,6 @@ public class MainPage {
 			// Do nothing. Our accountNameColumn won't be populated or added.
 			// The user will still have a semi-functional UI
 		}
-		
-		// Initialize saving mechanism for accountDescription
-		accountDescription.focusedProperty().addListener((o, oldVal, newVal)->{
-			if (newVal) { // We just got focus. Don't do anything
-			} else { // We just lost focus. Save our new description in the background and then update the sidebar.
-				// First, save all vars just in case they change
-				String currentSelectedAccountName = selectedAccount.accountName.getValue();
-				byte[] currentSelectedAccountID = selectedAccount.accountID;
-				String currentSelectedDescription = accountDescription.getText(); 
-				// Create task to update and run it
-				Task<Void> updateTask = new Task<Void>() {
-					public Void call() throws Exception {
-						backend.updateAccountCache(currentSelectedAccountID, true, currentSelectedDescription, -1);
-						try {
-							updateSearchTreeWithAccountAsync(currentSelectedAccountName);
-						} catch (Exception e) {
-							logger.log("Couldn't update search tree: " + e.getMessage());
-						}
-						return null;
-					}
-				};
-				new Thread(updateTask).start();
-			}
-		});
-		
-		// Show our new scene
-		stage.setTitle("ParaPass");
-		stage.setScene(scene);
 	}
 	
 	// Updates searchTreeTable (the sidebar JFXTreeTable)
@@ -300,130 +287,22 @@ public class MainPage {
 	// Creates a new password for a specified account. Takes a UserAccount instance with the account to add. 
 	// Setting addingAccount to true adds the account to the search tree and changes a little of the prompt text.
 	protected void createNewPassword(String accountToAdd, boolean addingAccount) {
-		// Create usedStrings array
-		String[] usedStrings;
-		if (addingAccount) {
-			usedStrings = new String[]{"Add Account", "This will create a new account in the blockchain. "};
-		} else {
-			usedStrings = new String[]{"Change Account Password", "This will generate a new password for your account. "};
-		}
-		
-		// Construct dialog and dialog layout, set heading
-		JFXDialogLayout dialogLayout = new JFXDialogLayout();
-		JFXDialog dialog = new JFXDialog(everythingPane, dialogLayout, JFXDialog.DialogTransition.CENTER);
-		dialogLayout.setHeading(new Text(usedStrings[0]));
-		
-		// Construct dialog body
-		TextFlow dialogBodyText = new TextFlow(new Text(usedStrings[1] +
-				"Please note that this operation will have a gas cost. Select the character types you " +
-				"want to include in your password below."));
-		Text emptyLine = new Text(" ");
-		// Character type inputs and password length slider for dialog body
-		JFXCheckBox lowercaseCheckbox = new JFXCheckBox("Lowercase Letters"); lowercaseCheckbox.setSelected(true);
-		JFXCheckBox uppercaseCheckbox = new JFXCheckBox("Uppercase Letters"); uppercaseCheckbox.setSelected(true);
-		JFXCheckBox digitsCheckbox = new JFXCheckBox("Digits"); digitsCheckbox.setSelected(true);
-		JFXCheckBox symbolsCheckbox = new JFXCheckBox("Symbols"); symbolsCheckbox.setSelected(true);
-		HBox.setMargin(lowercaseCheckbox, new Insets(10,10,10,10));
-		HBox.setMargin(uppercaseCheckbox, new Insets(10,10,10,10));
-		HBox.setMargin(digitsCheckbox, new Insets(10,10,10,10));
-		HBox.setMargin(symbolsCheckbox, new Insets(10,10,10,10));
-		HBox characterTypeInputs = new HBox(lowercaseCheckbox, uppercaseCheckbox, digitsCheckbox, symbolsCheckbox);
-		JFXSlider passLengthSlider = new JFXSlider(12, 64, 32);
-		// Finalize dialog body
-		VBox bodyContainer = new VBox(dialogBodyText, emptyLine, characterTypeInputs, passLengthSlider);
-		dialogLayout.setBody(bodyContainer);
-		
-		// Construct two actions - one to finalize add and one to cancel
-		JFXButton continueButton = new JFXButton("Continue");
-		JFXButton cancelButton = new JFXButton("Cancel");
-		// Create loading screen
-		JFXSpinner spinner = new JFXSpinner();
-		Text loadingText = new Text("Please wait...");
-		HBox.setMargin(loadingText, new Insets(16, 16, 16, 16));
-		HBox loadingBox = new HBox(spinner, loadingText);
-		loadingBox.setAlignment(Pos.CENTER);
-		
-		// Set action for continueButton to put password
-		continueButton.setOnAction((action)->{
-			// Disable both buttons
-			cancelButton.setDisable(true);
-			continueButton.setDisable(true);
-			// It's too late to turn back...
-			dialog.setOverlayClose(false);
-			// Replace bodyContainer children with loadingBox
-			bodyContainer.getChildren().clear();
-			bodyContainer.getChildren().add(loadingBox);
-			// Create a log handler for the dialog (to use just for now)
-			Logger.Handler dialogLoggerHandler = new Logger.Handler() {
-				public Runnable getRunnable(String toLog) {
-					return new Runnable() {
-						public void run() {
-							Platform.runLater(new Runnable() {
-								public void run() {
-									System.out.println(toLog);
-									loadingText.setText(toLog);
-								}
-							});
-						}
-					};
+		AccountAddDialog accountAddDialog = new AccountAddDialog(backend, everythingPane, addingAccount, accountToAdd, new Runnable() {
+			@Override
+			public void run() {
+				// Set backend logger back
+				backend.setLogger(logger);
+				// Update search tree
+				if (addingAccount) {
+					try {
+						updateSearchTreeWithAccountAsync(accountToAdd);
+					} catch (Exception e) {
+						logger.log("Couldn't update search tree: " + e.getMessage());
+					}
 				}
-			};
-			// Set the backend logger to a new logger with our new handler
-			backend.setLogger(new Logger(dialogLoggerHandler, dialogLoggerHandler));
-			// Create a new task to put the password
-			Task<Void> putPasswordTask = new Task<Void>() {
-				@Override
-				public Void call() throws Exception {
-					// Get input from user input nodes
-					int passLength = (int)passLengthSlider.getValue();
-					StringBuilder charlistBuilder = new StringBuilder();
-					if (lowercaseCheckbox.isSelected()) {
-						charlistBuilder.append(charTypeLowercase);
-					}
-					if (uppercaseCheckbox.isSelected()) {
-						charlistBuilder.append(charTypeUppercase);
-					}
-					if (digitsCheckbox.isSelected()) {
-						charlistBuilder.append(charTypeDigits);
-					}
-					if (symbolsCheckbox.isSelected()) {
-						charlistBuilder.append(charTypeSymbols);
-					}
-					// Run putPassword with inputs
-					backend.putPassword(accountToAdd, charlistBuilder.toString(), passLength);
-					// Set logger back to normal and do some UI cleanup.
-					backend.setLogger(logger);
-					Platform.runLater(new Runnable() {
-						@Override
-						public void run() {
-							// Change cancelButton text to "close" and remove this button.
-							cancelButton.setText("Close");
-							cancelButton.setDisable(false);
-							dialogLayout.setActions(cancelButton);
-						}
-					});
-					// Add new account to search tree if it is a new one (note: we need to re-generate the root because it's read only)
-					if (addingAccount) {
-						try {
-							updateSearchTreeWithAccountAsync(accountToAdd);
-						} catch (Exception e) {
-							logger.log("Couldn't update search tree: " + e.getMessage());
-						}
-					}
-					return null;
-				}
-			};
-			// Run our task
-			new Thread(putPasswordTask).start();
+			}
 		});
-		
-		// Create button to cancel, then set actions for dialogLayout
-		cancelButton.setOnAction((action)->{
-			dialog.close();
-		});
-		dialogLayout.setActions(cancelButton, continueButton);
-		// Create dialog and show
-		dialog.show();
+		accountAddDialog.show();
 	}
 	
 	// Toggles a password's pin state

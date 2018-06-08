@@ -64,7 +64,7 @@
                <children>
                   <ImageView fitHeight="112.0" fitWidth="286.0" layoutX="95.0" layoutY="1.0" pickOnBounds="true" preserveRatio="true">
                      <image>
-                        <Image url="@../../../../../../../../icons/ParaPass.png" />
+                        <Image url="@../../../../../../../icons/ParaPass.png" />
                      </image>
                   </ImageView>
                </children>

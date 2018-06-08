@@ -15,12 +15,12 @@ public class UserPassword extends RecursiveTreeObject<UserPassword> {
 	// Variables to store
 	private StringProperty timestamp;
 	public StringProperty accountName;
-	public StringProperty pass;
+	public String pass;
 	
 	// Constructor. Stores an account name, password, and converts a timestamp to a string and sets it
 	public UserPassword(long timestamp, String accountName, String pass) {
 		this.accountName = new SimpleStringProperty(accountName);
-		this.pass = new SimpleStringProperty(pass);
+		this.pass = pass;
 		setTimestamp(timestamp);
 	}
 	

@@ -1,4 +1,4 @@
-- C++ (Crypto++, Scrypt-Jane, Argon2id), Python (Web3.py, Qt, pystray) client for cryptographic operations.
+- C++ (Crypto++, Scrypt-Jane, Argon2id), Java (web3j) client for cryptographic operations.
 - Ethereum private key generated on client.
 - Master key is password hashed with two KDFs. Username hash used as salt.
 	- One thread hashes with a single run of Scrypt-18-4-0 (64 bytes).
