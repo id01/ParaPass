@@ -11,6 +11,7 @@ Passwords for the Paranoid
 
 ### Build
 * Dependencies
+	* C libs including tweetnacl, argon2, and scrypt-jane
 	* CryptoPP
 	* Pthread
 	* JNI
