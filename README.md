@@ -24,7 +24,7 @@ Passwords for the Paranoid
 	* Build PPassBackend and run for CLI
 
 ### Todo
-* "Remember me" feature using system keyring (implementations may be different for different platforms)
+* "Remember me" feature, securely, somehow...
 * WebExtension integration (HTTP server with AES key(s) for communications)
 
 ### Changelog
@@ -32,6 +32,7 @@ Passwords for the Paranoid
 	* Moved around a lot of code
 	* Minimize to system tray upon close, re-open upon clicking on system tray (using awt)
 	* Weeded out a bug where adding a password would cause all past password decryptions to give an "invalid HMAC" error
+	* Swapped out XSalsa20 + Poly1305 AES to a more standard XSalsa20-Poly1305
 * Version 0.0.4 (06/07/2018)
 	* Removed password-change event to reduce gas cost.
 	* "Past Passwords" feature added by caching encrypted passwords on the user-side with the SQLite database

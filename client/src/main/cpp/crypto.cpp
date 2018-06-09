@@ -98,7 +98,63 @@ struct accountname_and_password deserializePlaintext(const byte* plaintext) {
 	return out;
 }
 
-/**** SYMMETRIC QUADRUPLE ENCRYPTION FUNCTIONS ****/
+/**** SYMMETRIC ENCRYPTION FUNCTIONS ****/
+
+// Wrapper around tweetnacl encryption
+void tweetnacl_wrapper_encrypt(const byte* ptraw, const size_t ptrawlen, const byte* nonce, const byte* key, byte* out) {
+	// Get lengths
+	size_t ptlen = ptrawlen+crypto_secretbox_ZEROBYTES;
+	size_t ctrawlen = ptrawlen+HMACLEN;
+	// Allocate buffers, copy bytes in, encrypt, copy encrypted bytes out
+	byte* pt = (byte*)calloc(1, ptlen);
+	byte* ct = (byte*)calloc(1, ptlen);
+	memcpy(pt+crypto_secretbox_ZEROBYTES, ptraw, ptrawlen);
+	crypto_secretbox(ct, pt, ptlen, nonce, key);
+	memcpy(out, ct+crypto_secretbox_BOXZEROBYTES, ctrawlen);
+	// Wipe and return
+	secureFree(&pt, ptlen);
+	secureFree(&ct, ptlen);
+}
+
+// Wrapper around tweetnacl decryption
+int tweetnacl_wrapper_decrypt(const byte* ctraw, const size_t ctrawlen, const byte* nonce, const byte* key, byte* out) {
+	// Get lengths
+	size_t ctlen = ctrawlen+crypto_secretbox_BOXZEROBYTES;
+	size_t ptrawlen = ctrawlen-HMACLEN;
+	// Allocate buffers, copy encrypted bytes in, decrypt, copy bytes out
+	byte* pt = (byte*)calloc(1, ctlen);
+	byte* ct = (byte*)calloc(1, ctlen);
+	memcpy(ct+crypto_secretbox_BOXZEROBYTES, ctraw, ctrawlen);
+	int result = crypto_secretbox_open(pt, ct, ctlen, nonce, key);
+	memcpy(out, pt+crypto_secretbox_ZEROBYTES, ptrawlen);
+	// Wipe and return
+	secureFree(&pt, ctlen);
+	secureFree(&ct, ctlen);
+	return result;
+}
+
+// Encrypts a plaintext using a single block cipher function. Output and plaintext must both be CIPHERTEXTWITHOUTSEEDLEN.
+void encryptOneBlockCipher(CryptoPP::CipherModeDocumentation::Encryption *encryptor, const byte* plaintextWithNonce, const byte* key, byte* output) {
+	// Set up input. Our plaintext is everything after byte 16 (the last 8 bytes of the xsalsa20 nonce, the HMAC, and the encrypted plaintext).
+	const byte* nonce = plaintextWithNonce;
+	const byte* plaintext = plaintextWithNonce+16;
+	// Set up output. Our IV is everything before byte 16 (the first 16 bytes of the xsalsa20 nonce).
+	byte* ciphertextfull = (byte*)malloc(CIPHERTEXTWITHOUTSEEDLEN);
+	byte* iv = ciphertextfull;
+	byte* ciphertext = iv+IVLEN;
+	memcpy(iv, nonce, IVLEN);
+	// Run encryption without padding
+	encryptor->SetKeyWithIV(key, LOCALKEYLEN, iv, IVLEN);
+	CryptoPP::ArraySource(plaintext, BLOCKTEXTLEN, true,
+		new CryptoPP::StreamTransformationFilter( *encryptor,
+			new CryptoPP::ArraySink(ciphertext, BLOCKTEXTLEN),
+			CryptoPP::StreamTransformationFilter::NO_PADDING
+		)
+	);
+	// Copy ciphertextfull over to output and free
+	memcpy(output, ciphertextfull, CIPHERTEXTWITHOUTSEEDLEN);
+	secureFree(&ciphertextfull, CIPHERTEXTWITHOUTSEEDLEN);
+}
 
 // Encrypts a plaintext using a master key. Plaintext must be PLAINTEXTLEN, output must be CIPHERTEXTLEN
 void encrypt(const byte* plaintext, const byte* masterkey, byte* output) {
@@ -122,72 +178,32 @@ void encrypt(const byte* plaintext, const byte* masterkey, byte* output) {
 	// Set up output. Input is at plaintext. Our output (xsalsa20ciphertextfull) will be [nonce || hmac || ciphertext]
 	byte* xsalsa20ciphertextfull = (byte*)malloc(CIPHERTEXTWITHOUTSEEDLEN);
 	byte* xsalsa20nonce = xsalsa20ciphertextfull;
-	byte* xsalsa20hmac = xsalsa20nonce+NONCELEN;
-	byte* xsalsa20ciphertext = xsalsa20hmac+HMACLEN;
+	byte* xsalsa20hmacandct = xsalsa20nonce+NONCELEN;
 	// Copy over nonce
 	memcpy(xsalsa20nonce, nonce, NONCELEN);
-	// Generate HMAC for plaintext
-	CryptoPP::Poly1305<CryptoPP::AES> poly1305(keys[0], LOCALKEYLEN, xsalsa20nonce, NONCELEN);
-	poly1305.Update(plaintext, PLAINTEXTLEN);
-	poly1305.Final(xsalsa20hmac);
-	// Encrypt with XSalsa20
-	CryptoPP::XSalsa20::Encryption xsalsa20;
-	xsalsa20.SetKeyWithIV(keys[0], LOCALKEYLEN, xsalsa20nonce, NONCELEN);
-	xsalsa20.ProcessData(xsalsa20ciphertext, plaintext, PLAINTEXTLEN);
+	// Encrypt and generate HMAC
+	tweetnacl_wrapper_encrypt(plaintext, PLAINTEXTLEN, xsalsa20nonce, keys[0], xsalsa20hmacandct);
 
 	/* Encrypt using AES-CBC */
-	// Set up input. Our plaintext is the last 8 bytes of the xsalsa20 nonce, the xsalsa20 ciphertext, and the poly1305 hmac.
-	byte* aesplaintext = xsalsa20ciphertextfull+16;
-	// Set up output. Our IV is the first 16 bytes of the xsalsa20 nonce.
+	// Run AES-CBC encryption
 	byte* aesciphertextfull = (byte*)malloc(CIPHERTEXTWITHOUTSEEDLEN);
-	byte* aesiv = aesciphertextfull;
-	byte* aesciphertext = aesiv+IVLEN;
-	memcpy(aesiv, xsalsa20nonce, IVLEN);
-	// Run AES-CBC encryption without padding
-	CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption aescbc;
-	aescbc.SetKeyWithIV(keys[1], LOCALKEYLEN, aesiv, IVLEN);
-	CryptoPP::ArraySource(aesplaintext, BLOCKTEXTLEN, true,
-		new CryptoPP::StreamTransformationFilter( aescbc,
-			new CryptoPP::ArraySink(aesciphertext, BLOCKTEXTLEN),
-			CryptoPP::StreamTransformationFilter::NO_PADDING
-		)
-	);
+	CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption* aescbc = new CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption();
+	encryptOneBlockCipher(aescbc, xsalsa20ciphertextfull, keys[1], aesciphertextfull);
+	delete aescbc;
 
 	/* Encrypt using Twofish-CFB */
-	// Set up input. Our plaintext is the last 8 bytes of the xsalsa20 nonce, the xsalsa20 ciphertext, and the poly1305 hmac.
-	byte* twofishplaintext = aesciphertext;
-	// Set up output. Our IV is the first 16 bytes of the xsalsa20 nonce.
+	// Run Twofish-CFB encryption
 	byte* twofishciphertextfull = (byte*)malloc(CIPHERTEXTWITHOUTSEEDLEN);
-	byte* twofishiv = twofishciphertextfull;
-	byte* twofishciphertext = twofishiv+IVLEN;
-	memcpy(twofishiv, aesiv, IVLEN);
-	// Run Twofish-CFB encryption without padding
-	CryptoPP::CFB_Mode<CryptoPP::Twofish>::Encryption twofishcfb;
-	twofishcfb.SetKeyWithIV(keys[2], LOCALKEYLEN, twofishiv, IVLEN);
-	CryptoPP::ArraySource(twofishplaintext, BLOCKTEXTLEN, true,
-		new CryptoPP::StreamTransformationFilter( twofishcfb,
-			new CryptoPP::ArraySink(twofishciphertext, BLOCKTEXTLEN),
-			CryptoPP::StreamTransformationFilter::NO_PADDING
-		)
-	);
+	CryptoPP::CFB_Mode<CryptoPP::Twofish>::Encryption* twofishcfb = new CryptoPP::CFB_Mode<CryptoPP::Twofish>::Encryption();
+	encryptOneBlockCipher(twofishcfb, aesciphertextfull, keys[2], twofishciphertextfull);
+	delete twofishcfb;
 
 	/* Encrypt using Serpent-CTR */
-	// Set up input. Our plaintext is the last 8 bytes of the xsalsa20 nonce, the xsalsa20 ciphertext, and the poly1305 hmac.
-	byte* serpentplaintext = twofishciphertext;
-	// Set up output. Our IV is the first 16 bytes of the xsalsa20 nonce.
+	// Run Serpent-CTR encryption
 	byte* serpentciphertextfull = (byte*)malloc(CIPHERTEXTWITHOUTSEEDLEN);
-	byte* serpentiv = serpentciphertextfull;
-	byte* serpentciphertext = serpentiv+IVLEN;
-	memcpy(serpentiv, twofishiv, IVLEN);
-	// Run Serpent-CTR encryption without padding
-	CryptoPP::CTR_Mode<CryptoPP::Serpent>::Encryption serpentctr;
-	serpentctr.SetKeyWithIV(keys[3], LOCALKEYLEN, serpentiv, IVLEN);
-	CryptoPP::ArraySource(serpentplaintext, BLOCKTEXTLEN, true,
-		new CryptoPP::StreamTransformationFilter( serpentctr,
-			new CryptoPP::ArraySink(serpentciphertext, BLOCKTEXTLEN),
-			CryptoPP::StreamTransformationFilter::NO_PADDING
-		)
-	);
+	CryptoPP::CTR_Mode<CryptoPP::Serpent>::Encryption* serpentctr = new CryptoPP::CTR_Mode<CryptoPP::Serpent>::Encryption();
+	encryptOneBlockCipher(serpentctr, twofishciphertextfull, keys[3], serpentciphertextfull);
+	delete serpentctr;
 
 	/* Output and Cleanup */
 	// Copy over seed and ciphertext to output
@@ -205,11 +221,34 @@ void encrypt(const byte* plaintext, const byte* masterkey, byte* output) {
 	secureFree(&serpentciphertextfull, CIPHERTEXTWITHOUTSEEDLEN);
 }
 
+// Decrypts a ciphertext using a single block cipher function. Output and ciphertext must both be CIPHERTEXTWITHOUTSEEDLEN.
+void decryptOneBlockCipher(CryptoPP::CipherModeDocumentation::Decryption *decryptor, const byte* ciphertextWithNonce, const byte* key, byte* output) {
+	// Set up output
+	byte* plaintextfull = (byte*)malloc(CIPHERTEXTWITHOUTSEEDLEN);
+	byte* iv = plaintextfull;
+	byte* plaintext = iv+IVLEN;
+	// Set up input
+	memcpy(iv, ciphertextWithNonce, IVLEN);
+	const byte* ciphertext = ciphertextWithNonce+IVLEN;
+	// Decrypt with Serpent
+	decryptor->SetKeyWithIV(key, LOCALKEYLEN, iv, IVLEN);
+	CryptoPP::ArraySource(ciphertext, BLOCKTEXTLEN, true,
+		new CryptoPP::StreamTransformationFilter( *decryptor,
+			new CryptoPP::ArraySink(plaintext, BLOCKTEXTLEN),
+			CryptoPP::StreamTransformationFilter::NO_PADDING
+		)
+	);
+	// Copy over output and free
+	memcpy(output, plaintextfull, CIPHERTEXTWITHOUTSEEDLEN);
+	secureFree(&plaintextfull, CIPHERTEXTWITHOUTSEEDLEN);
+}
+
 // Decrypts a plaintext using a master key. Input must CIPHERTEXTLEN, output must be PLAINTEXTLEN. Returns false on failure, true on success.
 bool decrypt(const byte* ciphertext, const byte* masterkey, byte* output) {
 	/* Set up keys, seed, and nonce */
 	// Get seed and copy over to tohash 
 	const byte* seed = ciphertext;
+	const byte* ciphertextWithoutSeed = ciphertext+SEEDLEN;
 	byte* tohash = (byte*)malloc(SEEDLEN+MASTERKEYLEN+1); // This is [seed || master key || number]
 	memcpy(tohash, seed, SEEDLEN);
 	// Copy over master key
@@ -223,81 +262,40 @@ bool decrypt(const byte* ciphertext, const byte* masterkey, byte* output) {
 	}
 
 	/* Decrypt using Serpent-CTR */
-	// Set up output
+	// Run Serpent-CTR decryption
 	byte* serpentplaintextfull = (byte*)malloc(CIPHERTEXTWITHOUTSEEDLEN);
-	byte* serpentiv = serpentplaintextfull;
-	byte* serpentplaintext = serpentiv+IVLEN;
-	memcpy(serpentiv, seed+SEEDLEN, IVLEN);
-	// Set up input
-	const byte* serpentciphertext = seed+SEEDLEN+IVLEN;
-	// Decrypt with Serpent
-	CryptoPP::CTR_Mode<CryptoPP::Serpent>::Decryption serpentctr;
-	serpentctr.SetKeyWithIV(keys[3], LOCALKEYLEN, serpentiv, IVLEN);
-	CryptoPP::ArraySource(serpentciphertext, BLOCKTEXTLEN, true,
-		new CryptoPP::StreamTransformationFilter( serpentctr,
-			new CryptoPP::ArraySink(serpentplaintext, BLOCKTEXTLEN),
-			CryptoPP::StreamTransformationFilter::NO_PADDING
-		)
-	);
+	CryptoPP::CTR_Mode<CryptoPP::Serpent>::Decryption* serpentctr = new CryptoPP::CTR_Mode<CryptoPP::Serpent>::Decryption();
+	decryptOneBlockCipher(serpentctr, ciphertextWithoutSeed, keys[3], serpentplaintextfull);
+	delete serpentctr;
 
 	/* Decrypt using Twofish-CFB */
-	// Set up output
+	// Run Twofish-CFB decryption
 	byte* twofishplaintextfull = (byte*)malloc(CIPHERTEXTWITHOUTSEEDLEN);
-	byte* twofishiv = twofishplaintextfull;
-	byte* twofishplaintext = twofishiv+IVLEN;
-	memcpy(twofishiv, serpentiv, IVLEN);
-	// Set up input
-	byte* twofishciphertext = serpentplaintext;
-	// Decrypt with Serpent
-	CryptoPP::CFB_Mode<CryptoPP::Twofish>::Decryption twofishcfb;
-	twofishcfb.SetKeyWithIV(keys[2], LOCALKEYLEN, twofishiv, IVLEN);
-	CryptoPP::ArraySource(twofishciphertext, BLOCKTEXTLEN, true,
-		new CryptoPP::StreamTransformationFilter( twofishcfb,
-			new CryptoPP::ArraySink(twofishplaintext, BLOCKTEXTLEN),
-			CryptoPP::StreamTransformationFilter::NO_PADDING
-		)
-	);
+	CryptoPP::CFB_Mode<CryptoPP::Twofish>::Decryption* twofishcfb = new CryptoPP::CFB_Mode<CryptoPP::Twofish>::Decryption();
+	decryptOneBlockCipher(twofishcfb, serpentplaintextfull, keys[2], twofishplaintextfull);
+	delete twofishcfb;
 
 	/* Decrypt using AES-CBC */
-	// Set up output
+	// Run AES-CBC decryption
 	byte* aesplaintextfull = (byte*)malloc(CIPHERTEXTWITHOUTSEEDLEN);
-	byte* aesiv = aesplaintextfull;
-	byte* aesplaintext = aesiv+IVLEN;
-	memcpy(aesiv, twofishiv, IVLEN);
-	// Set up input
-	byte* aesciphertext = twofishplaintext;
-	// Decrypt with AES
-	CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption aescbc;
-	aescbc.SetKeyWithIV(keys[1], LOCALKEYLEN, aesiv, IVLEN);
-	CryptoPP::ArraySource(aesciphertext, BLOCKTEXTLEN, true,
-		new CryptoPP::StreamTransformationFilter( aescbc,
-			new CryptoPP::ArraySink(aesplaintext, BLOCKTEXTLEN),
-			CryptoPP::StreamTransformationFilter::NO_PADDING
-		)
-	);
+	CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption* aescbc = new CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption();
+	decryptOneBlockCipher(aescbc, twofishplaintextfull, keys[1], aesplaintextfull);
+	delete aescbc;
 
 	/* Decrypt using XSalsa20-Poly1305 */
 	// Set up output
 	byte* plaintext = (byte*)malloc(PLAINTEXTLEN);
-	byte hmac[HMACLEN];
 	// Set up input
 	byte* xsalsa20nonce = aesplaintextfull;
-	byte* xsalsa20hmac = xsalsa20nonce+NONCELEN;
-	byte* xsalsa20ciphertext = xsalsa20hmac+HMACLEN;
+	byte* xsalsa20hmacandct = xsalsa20nonce+NONCELEN;
 	// Decrypt with XSalsa20
-	CryptoPP::XSalsa20::Decryption xsalsa20;
-	xsalsa20.SetKeyWithIV(keys[0], LOCALKEYLEN, xsalsa20nonce, NONCELEN);
-	xsalsa20.ProcessData(plaintext, xsalsa20ciphertext, PLAINTEXTLEN);
-	// Generate HMAC for plaintext
-	CryptoPP::Poly1305<CryptoPP::AES> poly1305(keys[0], LOCALKEYLEN, xsalsa20nonce, NONCELEN);
-	poly1305.Update(plaintext, PLAINTEXTLEN);
-	poly1305.Final(hmac);
+	int result = tweetnacl_wrapper_decrypt(xsalsa20hmacandct, PLAINTEXTLEN+HMACLEN, xsalsa20nonce, keys[0], plaintext); 
 
 	/* Output, Cleanup, and Return */
 	// Copy output
 	memcpy(output, plaintext, PLAINTEXTLEN);
-	// Compare HMACs and return if they are equal. Store result in RAM.
-	bool hmacs_equal = (memcmp(xsalsa20hmac, hmac, HMACLEN) == 0);
+	// Check if result was success and store it in hmacs_equal
+	bool hmacs_equal = (result == 0);
 	// Wipe everything
 	secureFree(&tohash, SEEDLEN+MASTERKEYLEN+1);
 	for (uint8_t i=0; i<4; i++) {

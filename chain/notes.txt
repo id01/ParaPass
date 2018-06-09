@@ -2,7 +2,7 @@ Init:
 geth --networkid 99455 --nodiscover --maxpeers 0 --datadir ./mychain/ init genesis.json
 
 Run:
-geth --unlock=dfa712b4e9dc3798c5108f80fd1963ac62b84d8c --networkid 99455 --nodiscover --maxpeers 0 --rpc --datadir ./mychain/ console
+geth --unlock=cf40de19e4903a924974a4d810754975fae244f9 --networkid 99455 --nodiscover --maxpeers 0 --rpc --datadir ./mychain/ console
 
 Mine:
 > miner.start(1)

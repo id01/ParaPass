@@ -5,12 +5,12 @@ import java.util.ArrayList;
 
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.geometry.Pos;
-import javafx.geometry.Insets;
+//import javafx.geometry.Pos;
+//import javafx.geometry.Insets;
 //import javafx.scene.Scene;
-import javafx.scene.text.Text;
-import javafx.scene.text.TextFlow;
-import javafx.scene.layout.HBox;
+//import javafx.scene.text.Text;
+//import javafx.scene.text.TextFlow;
+//import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.BorderPane;
@@ -31,13 +31,8 @@ import javafx.concurrent.Task;
 
 import com.jfoenix.controls.JFXButton;
 import com.jfoenix.controls.JFXTextArea;
-import com.jfoenix.controls.JFXCheckBox;
-import com.jfoenix.controls.JFXSlider;
-import com.jfoenix.controls.JFXDialog;
-import com.jfoenix.controls.JFXDialogLayout;
 import com.jfoenix.controls.JFXHamburger;
 import com.jfoenix.controls.JFXRippler;
-import com.jfoenix.controls.JFXSpinner;
 import com.jfoenix.controls.JFXPopup;
 import com.jfoenix.controls.JFXTextField;
 import com.jfoenix.controls.JFXListView;
@@ -48,7 +43,6 @@ import com.jfoenix.controls.cells.editors.TextFieldEditorBuilder;
 import com.jfoenix.controls.cells.editors.base.GenericEditableTreeTableCell;
 import com.jfoenix.controls.datamodels.treetable.RecursiveTreeObject;
 
-import one.id0.ppass.backend.Logger;
 import one.id0.ppass.backend.PPassBackend;
 import one.id0.ppass.utils.UserAccount;
 import one.id0.ppass.utils.UserPassword;
@@ -211,7 +205,7 @@ public class MainPage extends Page {
 			searchMenu.getChildren().add(searchTreeTable);
 			// Style searchTreeTable and add click event that changes value of currently
 			// selected account as well as UI elements about it
-			searchTreeTable.getStyleClass().add("dark");
+	//		searchTreeTable.getStyleClass().add("dark");
 			searchTreeTable.getSelectionModel().selectedItemProperty().addListener((o, oldVal, newVal) -> {
 				if (newVal != null) {
 					// Change selectedAccount and right panel

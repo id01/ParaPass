@@ -189,18 +189,11 @@ JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_encryptMiscData(JNIEnv *e
 	size_t ciphertextfull_len = MISCNONCELEN+MISCHMACLEN+plaintext_len;
 	byte* ciphertextfull = (byte*)malloc(ciphertextfull_len);
 	byte* nonce = ciphertextfull;
-	byte* hmac = nonce+MISCNONCELEN;
-	byte* ciphertext = hmac+MISCHMACLEN;
+	byte* hmacandct = nonce+MISCNONCELEN;
 	// Generate nonce
 	CryptoPP::OS_GenerateRandomBlock(false, nonce, MISCNONCELEN);
-	// Generate HMAC for plaintext
-	CryptoPP::Poly1305<CryptoPP::AES> poly1305(misckey, MISCKEYLEN, nonce, MISCNONCELEN);
-	poly1305.Update(plaintext, plaintext_len);
-	poly1305.Final(hmac);
-	// Encrypt with XSalsa20
-	CryptoPP::XSalsa20::Encryption xsalsa20;
-	xsalsa20.SetKeyWithIV(misckey, MISCKEYLEN, nonce, MISCNONCELEN);
-	xsalsa20.ProcessData(ciphertext, plaintext, plaintext_len);
+	// Generate HMAC and ct
+	tweetnacl_wrapper_encrypt(plaintext,plaintext_len, nonce, misckey, hmacandct);
 
 	/* Cleanup and return */
 	// Copy over full ciphertext to buffer
@@ -236,26 +229,18 @@ JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_decryptMiscData(JNIEnv *e
 	// Set up output
 	size_t plaintext_len = ciphertextfull_len-MISCNONCELEN-MISCHMACLEN;
 	byte* plaintext = (byte*)malloc(plaintext_len);
-	byte hmac[MISCHMACLEN];
 	// Set up input
 	byte* xsalsa20nonce = ciphertextfull;
-	byte* xsalsa20hmac = xsalsa20nonce+MISCNONCELEN;
-	byte* xsalsa20ciphertext = xsalsa20hmac+MISCHMACLEN;
-	// Decrypt with XSalsa20
-	CryptoPP::XSalsa20::Decryption xsalsa20;
-	xsalsa20.SetKeyWithIV(misckey, MISCKEYLEN, xsalsa20nonce, MISCNONCELEN);
-	xsalsa20.ProcessData(plaintext, xsalsa20ciphertext, plaintext_len);
-	// Generate HMAC for plaintext
-	CryptoPP::Poly1305<CryptoPP::AES> poly1305(misckey, MISCKEYLEN, xsalsa20nonce, MISCNONCELEN);
-	poly1305.Update(plaintext, plaintext_len);
-	poly1305.Final(hmac);
+	byte* xsalsa20hmacandct = xsalsa20nonce+MISCNONCELEN;
+	// Decrypt with XSalsa20 and validate HMAC
+	int result = tweetnacl_wrapper_decrypt(xsalsa20hmacandct, plaintext_len+MISCHMACLEN, xsalsa20nonce, misckey, plaintext);
 
 	/* Output, Cleanup, and Return */
 	// Copy output
 	jbyteArray output = env->NewByteArray(plaintext_len);
 	env->SetByteArrayRegion(output, 0, plaintext_len, reinterpret_cast<jbyte*>(plaintext));
 	// Compare HMACs and return if they are equal. Store result in RAM.
-	bool hmacs_equal = (memcmp(xsalsa20hmac, hmac, MISCHMACLEN) == 0);
+	bool hmacs_equal = (result == 0);
 	// Clean up what we allocated
 	secureFree(&masterkey, masterkey_len);
 	secureFree(&misckey, MISCKEYLEN);

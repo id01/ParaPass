@@ -3,23 +3,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <string>
 
 // CryptoPP Algorithms
 #include <cryptopp/aes.h>
 #include <cryptopp/twofish.h>
 #include <cryptopp/serpent.h>
 #include <cryptopp/ccm.h>
-#include <cryptopp/salsa.h>
-#include <cryptopp/poly1305.h>
 #include <cryptopp/blake2.h>
 #include <cryptopp/sha.h>
 #include <cryptopp/osrng.h>
 #include <cryptopp/filters.h>
 #include <cryptopp/cryptlib.h>
 
-// Custom libs (kdfs)
+// Custom libs
 #include "libs/scrypt-jane/scrypt-jane.h"
 #include "libs/argon2/include/argon2.h"
+extern "C" {
+#include "libs/tweetnacl/tweetnacl.h"
+}
 
 // Let's make "unsigned char" less long
 typedef unsigned char byte;
@@ -48,7 +50,7 @@ struct accountname_and_password { // Struct containing account name and password
 void generatePlaintext(const byte* accname, const size_t accname_len, const char* password, const size_t password_len, byte* plaintext);
 struct accountname_and_password deserializePlaintext(const byte* plaintext);
 
-// Symmetric quadruple encryption functions
+// Symmetric encryption functions
 #define SEEDLEN 16
 #define NONCELEN 24
 #define IVLEN 16
@@ -61,6 +63,8 @@ struct accountname_and_password deserializePlaintext(const byte* plaintext);
 #define PLAINTEXTLEN (CIPHERTEXTLEN-SEEDLEN-NONCELEN-HMACLEN) // Note: This must be less than 256 for padding to work
 // Plaintext is [47-byte account name, after padding] [57-byte compressed password, after padding]
 // Ciphertext is [16 byte seed] [24 byte nonce] [plaintext encrypted] [16 byte hmac]
+void tweetnacl_wrapper_encrypt(const byte* ptraw, const size_t ptrawlen, const byte* nonce, const byte* key, byte* out);
+int tweetnacl_wrapper_decrypt(const byte* ctraw, const size_t ctrawlen, const byte* nonce, const byte* key, byte* out);
 void encrypt(const byte* plaintext, const byte* masterkey, byte* output);
 bool decrypt(const byte* ciphertext, const byte* masterkey, byte* output);
 

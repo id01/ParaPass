@@ -6,6 +6,7 @@ client/build
 client/target
 client/src/bin
 client/src/main/cpp/libs/argon2
+client/src/main/cpp/libs/tweetnacl
 client/src/main/cpp/libs/scrypt-jane
 client/src/gen/java/one/id0/ppass/gen/PPassNetwork.java
 client/PPassCache.db

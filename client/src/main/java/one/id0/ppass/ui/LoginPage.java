@@ -35,7 +35,7 @@ import one.id0.ppass.backend.PPassBackend;
 public class LoginPage extends Page {
 	// Constant for PPassNetwork address
 	final private String thatGrayShade = "#5B5B5B";
-	final private String ppassAddress = "0xf09d7f2623d109a0567fc377f080200c61f7bad7";
+	final private String ppassAddress = "0x7bf0298ba22d3c82d88b1f94d4491f017690ccdf";
 	
 	// Class variables
 	private String keystoreFilePath;
