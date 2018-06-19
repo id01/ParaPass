@@ -2,7 +2,7 @@
 Passwords for the Paranoid
 
 ### Features
-* Passwords are stored securley in an Ethereum Blockchain so that past passwords can always be recovered, even if a hacker obtains a private key.
+* Passwords are stored securely in an Ethereum Blockchain so that no one entity has control over your passwords.
 * Password encryption is done end-to-end on the client side. Nobody else has any knowledge of the contents of the passwords.
 * Passwords and account names are padded to a constant number of bytes before encryption, so no information about password or account name length are leaked.
 * Passwords are quadruple-encrypted with Serpent-CBC over Twofish-CTR over AES-CBC over XSalsa20-Poly1305, four strong modern ciphers, so that passwords stay secret even if one, two, or three are broken.
