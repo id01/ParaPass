@@ -1,0 +1,16 @@
+{
+	"manifest_version": 2,
+	"name": "A",
+	"description": "A",
+	"version": "0.1",
+
+	"permissions": ["storage", "tabs", "http://localhost:9455/*"],
+
+	"browser_action": {
+		"browser_style": true,
+		"default_popup": "popup/popup.html",
+		"default_icon": {
+			"32": "icons/Icon.png"
+		}
+	}
+}

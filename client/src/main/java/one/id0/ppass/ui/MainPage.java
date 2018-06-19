@@ -46,6 +46,8 @@ import com.jfoenix.controls.datamodels.treetable.RecursiveTreeObject;
 import one.id0.ppass.backend.PPassBackend;
 import one.id0.ppass.utils.UserAccount;
 import one.id0.ppass.utils.UserPassword;
+import one.id0.ppass.server.PPassServer;
+import one.id0.ppass.server.JSONServer;
 
 public class MainPage extends Page {	
 	// Class variables
@@ -55,6 +57,7 @@ public class MainPage extends Page {
 	private UserAccount selectedAccount;
 	private JFXHamburger accountHamburger;
 	private JFXListView<Label> accountHamburgerActions;
+	private PPassServer server;
 	
 	// FXML elements that we need to interact with
 	@FXML private StackPane everythingPane;
@@ -114,6 +117,10 @@ public class MainPage extends Page {
 		
 		// Show our new scene
 		super.enterStage();
+		
+		// Create JSONServer and initialize. If you don't want to use the webextension, import and use NullServer instead.
+		server = new JSONServer();
+		server.init(backend, false, logger);
 	}
 	
 	// Initializes accountHamburger

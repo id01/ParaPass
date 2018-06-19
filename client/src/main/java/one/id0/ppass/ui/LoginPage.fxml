@@ -57,7 +57,7 @@
                         </Pane>
                      </children>
                   </GridPane>
-                  <JFXButton layoutX="137.0" layoutY="286.0" text="Create Account" textFill="#5b5b5b" />
+                  <JFXButton fx:id="toggleCreateAccountButton" layoutX="137.0" layoutY="286.0" onAction="#toggleCreateAccount" text="Create Account" textFill="#5b5b5b" />
                </children>
             </Pane>
             <Pane layoutX="234.0" layoutY="14.0" prefHeight="103.0" prefWidth="381.0">

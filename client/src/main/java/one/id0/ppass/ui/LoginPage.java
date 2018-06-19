@@ -35,7 +35,7 @@ import one.id0.ppass.backend.PPassBackend;
 public class LoginPage extends Page {
 	// Constant for PPassNetwork address
 	final private String thatGrayShade = "#5B5B5B";
-	final private String ppassAddress = "0x7bf0298ba22d3c82d88b1f94d4491f017690ccdf";
+	final private String ppassAddress = "0xcfc2a3d81adf61571e5a83a96a49fe82189259d9";
 	
 	// Class variables
 	private String keystoreFilePath;
@@ -51,6 +51,7 @@ public class LoginPage extends Page {
 	@FXML private JFXButton selectKeystoreButton;
 	@FXML private Label keystoreFileLabel;
 	@FXML private JFXButton loginButton;
+	@FXML private JFXButton toggleCreateAccountButton;
 	
 	// Other global variables
 	private PPassBackend backend;
@@ -148,20 +149,31 @@ public class LoginPage extends Page {
 		loginFormPane.getChildren().add(loadingBox);
 		// Initialization task: Initialize PPassBackend with specified parameters
 		Task<PPassBackend> initTask = createInitTaskTemplate();
-		// If successful, set backend and create another task for login
+		// If successful, set backend and create another task for login or account creation
 		initTask.setOnSucceeded(e->{
 			backend = initTask.getValue();
-			Task<Void> loginTask = new Task<Void>() {
-				@Override
-				public Void call() throws Exception {
-					backend.userLogin(usernameInput.getText(), passwordInput.getText());
-					return null;
-				}
-			};
-			loginTask.setOnFailed(ee->{
-				logger.logErr(loginTask.getException().getMessage());
+			Task<Void> enterTask;
+			if (loginButton.getText().equals("Login")) {
+				enterTask = new Task<Void>() {
+					@Override
+					public Void call() throws Exception {
+						backend.userLogin(usernameInput.getText(), passwordInput.getText());
+						return null;
+					}
+				};
+			} else {
+				enterTask = new Task<Void>() {
+					@Override
+					public Void call() throws Exception {
+						backend.userSetup(usernameInput.getText(), passwordInput.getText());
+						return null;
+					}
+				};
+			}
+			enterTask.setOnFailed(ee->{
+				logger.logErr(enterTask.getException().getMessage());
 			});
-			loginTask.setOnSucceeded(ee->{
+			enterTask.setOnSucceeded(ee->{
 				try {
 					new MainPage(stage, backend);
 				} catch (IOException eee) {
@@ -169,7 +181,7 @@ public class LoginPage extends Page {
 				}
 			});
 			// Launch login task
-			new Thread(loginTask).start();
+			new Thread(enterTask).start();
 		});
 		// Launch initTask
 		new Thread(initTask).start();
@@ -262,5 +274,16 @@ public class LoginPage extends Page {
 			}
 		});
 		new Thread(checkWalletFileTask).start();
+	}
+	
+	// Function that toggles our mode - to create an account or to login to one
+	@FXML protected void toggleCreateAccount(ActionEvent event) {
+		if (loginButton.getText().equals("Login")) {
+			loginButton.setText("Create");
+			toggleCreateAccountButton.setText("Login to Account");
+		} else {
+			loginButton.setText("Login");
+			toggleCreateAccountButton.setText("Create Account");
+		}
 	}
 }

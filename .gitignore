@@ -10,6 +10,9 @@ client/src/main/cpp/libs/tweetnacl
 client/src/main/cpp/libs/scrypt-jane
 client/src/gen/java/one/id0/ppass/gen/PPassNetwork.java
 client/PPassCache.db
+client/ServerKey.b64
+webextension/popup/base64js/base64js.js
+webextension/popup/tweetnacl/tweetnacl.js
 **/.project
 **/.classpath
 **/.settings

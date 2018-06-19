@@ -36,6 +36,13 @@ public class Crypto {
 		masterkey = generateKey(password, userhash);
 		masterkeyhash = blake2b(masterkey, PWHASHLEN);
 	}
+	
+	// Constructor - using existing masterkey for misc data encryption/decryption only
+	public Crypto(byte[] masterkey) {
+		userhash = blake2b(new byte[1], USERHASHLEN);
+		this.masterkey = masterkey;
+		masterkeyhash = blake2b(masterkey, PWHASHLEN);
+	}
 
 	// Function to hash an account name
 	public byte[] hashAccountName(String accountName) {
@@ -47,12 +54,15 @@ public class Crypto {
 		return blake2b(concatenated, ACCOUNTHASHLEN);
 	}
 	
-	// Functions to get the master key hash and username hash
+	// Functions to get the master key hash, username hash, and generic hash
 	public byte[] getUserHash() {
 		return userhash;
 	}
 	public byte[] getMasterKeyHash() {
 		return masterkeyhash;
+	}
+	public byte[] getGenericHash(byte[] tohash, int digest_len) {
+		return blake2b(tohash, digest_len);
 	}
 
 	// Function to generate a password

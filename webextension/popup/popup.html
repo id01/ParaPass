@@ -1,0 +1,46 @@
+<head>
+<head>
+<!-- Scripts -->
+<script src="base64js/base64js.js"></script>
+<script src="tweetnacl/tweetnacl.js"></script>
+</head>
+<body>
+<!-- First time visiting - ask for key -->
+<form id="keyform" style="display:none">
+Congratulations on installing the ParaPass webextension!<br/>
+Please paste the base64 ParaPass key from your local installation of ParaPass here.<br/>
+This is required to be able to connect to the server.<br/>
+Key: <input type="password" id="keyformkey" value=""/><br/>
+<input type="submit" value="Submit"/>
+</form>
+<!-- Bind this site to a ParaPass account -->
+<form id="bindform" style="display:none">
+Use this form to bind this site to an account in ParaPass.<br/>
+Please specify the account name this site uses.<br/>
+Account Name:<input type="text" id="bindformaccount"/><br/>
+<input type="submit" value="Submit"/>
+</form>
+<!-- Get/Add password for this site -->
+<form id="getaddform" style="display:none">
+<!-- Select get or add action -->
+<select id="action" name="action">
+<option value="get">Get Password</option>
+<option value="put">Update Password</option>
+</select>
+<!-- Part of form only visible on ADD -->
+<div id="addonly" style="display:none">
+<div>Password Length:<input type="number" name="passlength"/></div>
+<div>
+Character types:
+<input type="checkbox" name="chartype_lower"/>Lowercase Letters &nbsp;
+<input type="checkbox" name="chartype_upper"/>Uppercase Letters &nbsp;
+<input type="checkbox" name="chartype_digit"/>Digits &nbsp;
+<input type="checkbox" name="chartype_symbol"/>Symbols &nbsp;
+</div>
+<!-- Submit button -->
+</div>
+<input type="submit" value="Submit">
+</form>
+<script src="popup.js"></script>
+</body>
+</head>

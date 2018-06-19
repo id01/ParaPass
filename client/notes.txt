@@ -8,7 +8,7 @@
 	- Users may export their private keys in plaintext or encrypted using thier master key.
 	- If this is lost, people can still recover their passwords if they remember their master password.
 - Quadruple encryption algorithm.
-	- Uses 24-byte nonce with Serpent-CTR over Twofish-CFB over AES-CBC over XSalsa20-Poly1305.
+	- Uses 24-byte nonce with Serpent-CBC over Twofish-CTR over AES-CBC over XSalsa20-Poly1305.
 	- Algorithm is
 		[16 byte seed] [24 byte nonce] [XSalsa20 Plaintext Padded] (is exactly 160 bytes with HMAC appended)
 		-> [16 byte seed] [16 byte nonce] [AES-CBC Plaintext]
@@ -18,6 +18,6 @@
 		Another note: Seed is there to run sha512 with master key. EG encryptionKey = sha512(masterkey || seed)
 - Encrypt password to 160-byte string using sha512 master key, but don't sign it using nacl.
 	- Just upload it to smart contract function directly (signed using ethereum key).
-- Cryptographic operations should be wrapped in high-level C++ functions, while UI and OS work should be done in Python
+- Cryptographic operations should be wrapped in high-level C++ functions, while UI and OS work should be done in Java
 - Client accessible from system tray icon on both Windows and Linux
 - Client depends on eth web3

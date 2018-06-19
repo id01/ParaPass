@@ -1,0 +1,1 @@
+Download base64js.min.js from [here](https://github.com/beatgammit/base64-js) and name it "base64js.js" in this directory

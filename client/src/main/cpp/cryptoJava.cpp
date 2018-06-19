@@ -164,7 +164,7 @@ JNIEXPORT jstring Java_one_id0_ppass_backend_Crypto_generateRandomPassword(JNIEn
 	return env->NewStringUTF(password);
 }
 
-// Encrypts a misc byte array
+// Encrypts a misc byte array.
 #define MISCKEYLEN 32
 #define MISCNONCELEN 24
 #define MISCHMACLEN 16
@@ -178,11 +178,9 @@ JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_encryptMiscData(JNIEnv *e
 	env->GetByteArrayRegion(javaMasterKey, 0, masterkey_len, reinterpret_cast<jbyte*>(masterkey));
 
 	/* Generate key */
-	// Generate misckey (we don't want to use masterkey because if xsalsa20 is compromised in a way that leaks the key that will be bad)
-	// Misckey is blake2 hash of masterkey where masterkey[0] is incremented by 1, as a blake2 hash was already made public
-	masterkey[0]++;
-	byte* misckey = (byte*)malloc(MISCKEYLEN);
-	CryptoPP::BLAKE2b(false, MISCKEYLEN).CalculateDigest(misckey, masterkey, masterkey_len);
+	// Misckey is SHA-512 hash of masterkey, truncated to MISCKEYLEN
+	byte* misckey = (byte*)malloc(CryptoPP::SHA512::DIGESTSIZE);
+	CryptoPP::SHA512().CalculateDigest(misckey, masterkey, MASTERKEYLEN);
 
 	/* Encrypt using XSalsa20-Poly1305 */
 	// Set up output. Input is at plaintext. Our output (ciphertextfull) will be [nonce || hmac || ciphertext]
@@ -219,11 +217,9 @@ JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_decryptMiscData(JNIEnv *e
 	env->GetByteArrayRegion(javaMasterKey, 0, masterkey_len, reinterpret_cast<jbyte*>(masterkey));
 
 	/* Generate key */
-	// Generate misckey (we don't want to use masterkey because if xsalsa20 is compromised in a way that leaks the key that will be bad)
-	// Misckey is blake2 hash of masterkey where masterkey[0] is incremented by 1, as a blake2 hash was already made public
-	masterkey[0]++;
-	byte* misckey = (byte*)malloc(MISCKEYLEN);
-	CryptoPP::BLAKE2b(false, MISCKEYLEN).CalculateDigest(misckey, masterkey, masterkey_len);
+	// Misckey is SHA-512 hash of masterkey, truncated to MISCKEYLEN
+	byte* misckey = (byte*)malloc(CryptoPP::SHA512::DIGESTSIZE);
+	CryptoPP::SHA512().CalculateDigest(misckey, masterkey, MASTERKEYLEN);
 
 	/* Decrypt using XSalsa20-Poly1305 */
 	// Set up output

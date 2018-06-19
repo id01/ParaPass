@@ -191,19 +191,19 @@ void encrypt(const byte* plaintext, const byte* masterkey, byte* output) {
 	encryptOneBlockCipher(aescbc, xsalsa20ciphertextfull, keys[1], aesciphertextfull);
 	delete aescbc;
 
-	/* Encrypt using Twofish-CFB */
-	// Run Twofish-CFB encryption
+	/* Encrypt using Twofish-CTR */
+	// Run Twofish-CTR encryption
 	byte* twofishciphertextfull = (byte*)malloc(CIPHERTEXTWITHOUTSEEDLEN);
-	CryptoPP::CFB_Mode<CryptoPP::Twofish>::Encryption* twofishcfb = new CryptoPP::CFB_Mode<CryptoPP::Twofish>::Encryption();
-	encryptOneBlockCipher(twofishcfb, aesciphertextfull, keys[2], twofishciphertextfull);
-	delete twofishcfb;
+	CryptoPP::CTR_Mode<CryptoPP::Twofish>::Encryption* twofishctr = new CryptoPP::CTR_Mode<CryptoPP::Twofish>::Encryption();
+	encryptOneBlockCipher(twofishctr, aesciphertextfull, keys[2], twofishciphertextfull);
+	delete twofishctr;
 
-	/* Encrypt using Serpent-CTR */
-	// Run Serpent-CTR encryption
+	/* Encrypt using Serpent-CBC */
+	// Run Serpent-CBC encryption
 	byte* serpentciphertextfull = (byte*)malloc(CIPHERTEXTWITHOUTSEEDLEN);
-	CryptoPP::CTR_Mode<CryptoPP::Serpent>::Encryption* serpentctr = new CryptoPP::CTR_Mode<CryptoPP::Serpent>::Encryption();
-	encryptOneBlockCipher(serpentctr, twofishciphertextfull, keys[3], serpentciphertextfull);
-	delete serpentctr;
+	CryptoPP::CBC_Mode<CryptoPP::Serpent>::Encryption* serpentcbc = new CryptoPP::CBC_Mode<CryptoPP::Serpent>::Encryption();
+	encryptOneBlockCipher(serpentcbc, twofishciphertextfull, keys[3], serpentciphertextfull);
+	delete serpentcbc;
 
 	/* Output and Cleanup */
 	// Copy over seed and ciphertext to output
@@ -261,19 +261,19 @@ bool decrypt(const byte* ciphertext, const byte* masterkey, byte* output) {
 		sha256.CalculateDigest(keys[i], tohash, SEEDLEN+MASTERKEYLEN+1);
 	}
 
-	/* Decrypt using Serpent-CTR */
-	// Run Serpent-CTR decryption
+	/* Decrypt using Serpent-CBC */
+	// Run Serpent-CBC decryption
 	byte* serpentplaintextfull = (byte*)malloc(CIPHERTEXTWITHOUTSEEDLEN);
-	CryptoPP::CTR_Mode<CryptoPP::Serpent>::Decryption* serpentctr = new CryptoPP::CTR_Mode<CryptoPP::Serpent>::Decryption();
-	decryptOneBlockCipher(serpentctr, ciphertextWithoutSeed, keys[3], serpentplaintextfull);
-	delete serpentctr;
+	CryptoPP::CBC_Mode<CryptoPP::Serpent>::Decryption* serpentcbc = new CryptoPP::CBC_Mode<CryptoPP::Serpent>::Decryption();
+	decryptOneBlockCipher(serpentcbc, ciphertextWithoutSeed, keys[3], serpentplaintextfull);
+	delete serpentcbc;
 
-	/* Decrypt using Twofish-CFB */
-	// Run Twofish-CFB decryption
+	/* Decrypt using Twofish-CTR */
+	// Run Twofish-CTR decryption
 	byte* twofishplaintextfull = (byte*)malloc(CIPHERTEXTWITHOUTSEEDLEN);
-	CryptoPP::CFB_Mode<CryptoPP::Twofish>::Decryption* twofishcfb = new CryptoPP::CFB_Mode<CryptoPP::Twofish>::Decryption();
-	decryptOneBlockCipher(twofishcfb, serpentplaintextfull, keys[2], twofishplaintextfull);
-	delete twofishcfb;
+	CryptoPP::CTR_Mode<CryptoPP::Twofish>::Decryption* twofishctr = new CryptoPP::CTR_Mode<CryptoPP::Twofish>::Decryption();
+	decryptOneBlockCipher(twofishctr, serpentplaintextfull, keys[2], twofishplaintextfull);
+	delete twofishctr;
 
 	/* Decrypt using AES-CBC */
 	// Run AES-CBC decryption
