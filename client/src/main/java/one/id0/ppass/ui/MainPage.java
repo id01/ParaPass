@@ -52,14 +52,15 @@ import one.id0.ppass.server.JSONServer;
 public class MainPage extends Page {	
 	// Class variables
 	private PPassBackend backend;
+	private ObservableList<UserAccount> userAccounts;
 	private TreeItem<UserAccount> accountRoot;
-	private JFXTreeTableView<UserAccount> searchTreeTable;
 	private UserAccount selectedAccount;
 	private JFXHamburger accountHamburger;
 	private JFXListView<Label> accountHamburgerActions;
 	private PPassServer server;
 	
 	// FXML elements that we need to interact with
+	@FXML private JFXTreeTableView<UserAccount> searchTreeTable;
 	@FXML private StackPane everythingPane;
 	@FXML private SplitPane containerPane;
 	@FXML private VBox searchMenu;
@@ -170,8 +171,8 @@ public class MainPage extends Page {
 			if (param.getValue().getValue() == null) {
 				return new SimpleStringProperty("null");
 			}
-            return param.getValue().getValue().accountName;
-        });
+			return param.getValue().getValue().accountName;
+		});
 		accountNameColumn.setCellFactory((TreeTableColumn<UserAccount, String> param) ->
         	new GenericEditableTreeTableCell<UserAccount, String>(new TextFieldEditorBuilder()));
 		// Timestamp column
@@ -180,8 +181,8 @@ public class MainPage extends Page {
 			if (param.getValue().getValue() == null) {
 				return new SimpleStringProperty("Never");
 			}
-            return param.getValue().getValue().timestamp;
-        });
+			return param.getValue().getValue().timestamp;
+		});
 		timestampColumn.setCellFactory((TreeTableColumn<UserAccount, String> param) ->
         	new GenericEditableTreeTableCell<UserAccount, String>(new TextFieldEditorBuilder()));
 		// Pinned column
@@ -190,17 +191,16 @@ public class MainPage extends Page {
 			if (param.getValue().getValue() == null) {
 				return new SimpleStringProperty("");
 			}
-            return param.getValue().getValue().pinned;
-        });
+			return param.getValue().getValue().pinned;
+		});
 		pinnedColumn.setCellFactory((TreeTableColumn<UserAccount, String> param) ->
         	new GenericEditableTreeTableCell<UserAccount, String>(new TextFieldEditorBuilder()));
 		
 		// Initialize searchTreeTable content and listeners
 		try {
-			ArrayList<UserAccount> allAccounts = backend.getAllAccounts();
-			ObservableList<UserAccount> accounts = FXCollections.observableArrayList(allAccounts);
-			accountRoot = new RecursiveTreeItem<UserAccount>(accounts, RecursiveTreeObject::getChildren);
-			searchTreeTable = new JFXTreeTableView<UserAccount>(accountRoot);
+			ArrayList<UserAccount> userAccountsArrayList = backend.getAllAccounts();
+			userAccounts = FXCollections.observableArrayList(userAccountsArrayList);
+			accountRoot = new RecursiveTreeItem<UserAccount>(userAccounts, RecursiveTreeObject::getChildren);
 			searchTreeTable.getColumns().setAll(accountNameColumn, timestampColumn, pinnedColumn);
 			searchInput.textProperty().addListener((o, oldVal, newVal) -> {
 				searchTreeTable.setPredicate(accProp -> {
@@ -208,8 +208,7 @@ public class MainPage extends Page {
 					return account.accountName.toString().contains(newVal);
 				});
 			});
-			searchTreeTable.setShowRoot(false);
-			searchMenu.getChildren().add(searchTreeTable);
+			searchTreeTable.setRoot(accountRoot);
 			// Style searchTreeTable and add click event that changes value of currently
 			// selected account as well as UI elements about it
 	//		searchTreeTable.getStyleClass().add("dark");
@@ -260,7 +259,10 @@ public class MainPage extends Page {
 					}
 				}
 				// This is a new value. Add to accountRoot.
-				accountRoot.getChildren().add(new TreeItem<UserAccount>(userAccountToAdd));
+				// TODO: Somehow it looks like this adds items to the search results, not the search options,
+				// and therefore changing the search query removes them.
+				userAccounts.add(userAccountToAdd);
+				// accountRoot.getChildren().add(new RecursiveTreeItem<UserAccount>(userAccountToAdd, RecursiveTreeObject::getChildren));
 			}
 		});
 	}

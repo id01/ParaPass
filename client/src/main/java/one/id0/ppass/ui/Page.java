@@ -27,6 +27,9 @@ public abstract class Page {
 		FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlFile));
 		loader.setController(this);
 		scene = new Scene(loader.load());
+		// Initialize stylesheet
+//		scene.getStylesheets().add(Page.class.getResource("css/jfx-table-view.css").toExternalForm());
+//		scene.getStylesheets().add(Page.class.getResource("css/default.css").toExternalForm());
 		// Copy over stage
 		this.stage = stage;
 	}

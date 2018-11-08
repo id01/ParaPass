@@ -20,4 +20,4 @@
 	- Just upload it to smart contract function directly (signed using ethereum key).
 - Cryptographic operations should be wrapped in high-level C++ functions, while UI and OS work should be done in Java
 - Client accessible from system tray icon on both Windows and Linux
-- Client depends on eth web3
+- Client depends on eth web3, need to find a way to make it easier to use

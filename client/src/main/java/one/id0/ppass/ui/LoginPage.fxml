@@ -51,8 +51,8 @@
                         </BorderPane>
                         <Pane prefHeight="200.0" prefWidth="200.0" GridPane.rowIndex="2">
                            <children>
-                              <JFXButton fx:id="selectKeystoreButton" layoutY="21.0" onAction="#selectKeystoreFile" text="Select Keystore..." textFill="#5b5b5b" />
-                              <Label fx:id="keystoreFileLabel" layoutX="189.0" layoutY="26.0" text="No File Selected" textFill="#363636" />
+                              <JFXButton fx:id="selectPPassButton" layoutY="21.0" onAction="#selectPPassFile" text="Select PPass File..." textFill="#5b5b5b" />
+                              <Label fx:id="ppassFileLabel" layoutX="189.0" layoutY="26.0" text="No File Selected" textFill="#363636" />
                            </children>
                         </Pane>
                      </children>
@@ -60,9 +60,9 @@
                   <JFXButton fx:id="toggleCreateAccountButton" layoutX="137.0" layoutY="286.0" onAction="#toggleCreateAccount" text="Create Account" textFill="#5b5b5b" />
                </children>
             </Pane>
-            <Pane layoutX="234.0" layoutY="14.0" prefHeight="103.0" prefWidth="381.0">
+            <Pane layoutX="234.0" layoutY="25.0" prefHeight="103.0" prefWidth="381.0">
                <children>
-                  <ImageView fitHeight="112.0" fitWidth="286.0" layoutX="95.0" layoutY="1.0" pickOnBounds="true" preserveRatio="true">
+                  <ImageView fitHeight="112.0" fitWidth="286.0" layoutX="48.0" layoutY="1.0" pickOnBounds="true" preserveRatio="true">
                      <image>
                         <Image url="@../../../../../../../icons/ParaPass.png" />
                      </image>

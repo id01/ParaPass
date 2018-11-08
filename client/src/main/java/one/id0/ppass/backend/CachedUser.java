@@ -42,9 +42,9 @@ public class CachedUser extends User {
 	}
 	
 	// Constructor
-	public CachedUser(PPassNetwork ppass, String username, String masterpass, boolean createmode, Logger logger) throws Exception {
+	public CachedUser(PPassNetwork ppass, String username, String masterpass, byte[] ppassFileContent, boolean createmode, Logger logger) throws Exception {
 		// Initialize user
-		super(ppass, username, masterpass, createmode, logger);
+		super(ppass, username, masterpass, ppassFileContent, createmode, logger);
 		// Initialize connection and create tables if necessary
 		logger.log("Connecting to cache...");
 		connection = DriverManager.getConnection("jdbc:sqlite:PPassCache.db");

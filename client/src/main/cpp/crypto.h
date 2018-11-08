@@ -15,6 +15,7 @@
 #include <cryptopp/osrng.h>
 #include <cryptopp/filters.h>
 #include <cryptopp/cryptlib.h>
+#include <cryptopp/randpool.h>
 
 // Custom libs
 #include "libs/scrypt-jane/scrypt-jane.h"
@@ -67,9 +68,16 @@ void tweetnacl_wrapper_encrypt(const byte* ptraw, const size_t ptrawlen, const b
 int tweetnacl_wrapper_decrypt(const byte* ctraw, const size_t ctrawlen, const byte* nonce, const byte* key, byte* out);
 void encrypt(const byte* plaintext, const byte* masterkey, byte* output);
 bool decrypt(const byte* ciphertext, const byte* masterkey, byte* output);
+void one_time_pad(byte* ptorct, byte* key, byte* out, size_t len);
 
 // Hashing functions
 #define HASH_PART_LEN 64
 #define NUM_HASHES 2
 #define HASH_FULL_LEN (HASH_PART_LEN*NUM_HASHES)
+#define HASH_DONE_LEN 128
 bool double_hash(const char* pass, const size_t pass_len, const byte* salt, const size_t salt_len, byte* out);
+
+// Misc encryption/decryption functions
+#define MISCKEYLEN 32
+#define MISCNONCELEN 24
+#define MISCHMACLEN 16

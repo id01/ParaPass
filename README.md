@@ -27,14 +27,17 @@ Passwords for the Paranoid
 
 ### Todo
 * "Remember me" feature, securely, somehow...
-* WebExtension integration (HTTP server with AES key(s) for communications)
+* Make JSONServer key more secure
+* I still need an icon...
 
 ### Changelog
+* Version 0.0.7 (XX/XX/XXXX)
+	* (TODO) Removed webextension and server due to security concerns
+	* (TODO) Dual-Factor Authentication - ".ppass" file required for login, keystore file no longer necessary. Also increases entropy of key.
 * Version 0.0.6 (06/19/2018)
-	* Created barebones of a webextension (not usable yet without leaking password and probably server key)
+	* Created barebones of a webextension (not usable yet without leaking password and probably server key due to lack of masking)
 	* Connected "create account" function to GUI
 	* Switched cipher modes to CBC-CTR-CBC instead of CBC-CFB-CTR
-	* I still need an icon...
 * Version 0.0.5 (06/08/2018)
 	* Moved around a lot of code
 	* Minimize to system tray upon close, re-open upon clicking on system tray (using awt)

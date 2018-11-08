@@ -1,2 +1,0 @@
-Have to find a way to derive the Salsa20 encryption key from the key in JavaScript.
-May want to change the hashing alg to truncated SHA-512 as the easiest solution

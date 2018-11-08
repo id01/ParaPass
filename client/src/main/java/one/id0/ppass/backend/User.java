@@ -16,12 +16,12 @@ public class User {
 	
 	// Constructor. Takes in the PPassNetwork connection the user is on
 	// the username, the password, and whether we want to create a user or log into one 
-	public User(PPassNetwork ppass, String username, String masterpass, boolean createmode, Logger logger) throws Exception {
+	public User(PPassNetwork ppass, String username, String masterpass, byte[] ppassFileContent, boolean createmode, Logger logger) throws Exception {
 		// Copy over logger, initialize cache to null
 		this.logger = logger;
 		// Generate keys in new Crypto class and copy over ppass to global.
 		logger.log("Generating keys...");
-		crypto = new Crypto(username, masterpass);
+		crypto = new Crypto(username, masterpass, PPassBackend.ppassFileVersion, ppassFileContent);
 		this.ppass = ppass;
 		// Get userhash and masterkeyhash
 		this.userhash = crypto.getUserHash();
@@ -35,6 +35,10 @@ public class User {
 			}
 			TransactionReceipt tx_receipt = ppass.addUser(userhash, masterkeyhash).send();
 			logger.log("Success! Tranaction hash: " + tx_receipt.getTransactionHash());
+		} else {
+			if (ppass.checkUserFree(userhash).send()) {
+				throw new Exception("User doesn't exist!");
+			}
 		}
 		// Check if we are the owner of this account and our masterkeyhash is right
 		logger.log("Checking login status...");

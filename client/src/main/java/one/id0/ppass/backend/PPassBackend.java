@@ -1,11 +1,15 @@
 package one.id0.ppass.backend;
 
+import java.util.Base64;
 import java.util.Scanner;
 import java.util.ArrayList;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.math.BigInteger;
 
+import org.web3j.crypto.ECKeyPair;
 import org.web3j.crypto.Credentials;
 import org.web3j.crypto.WalletUtils;
 import org.web3j.crypto.CipherException;
@@ -15,6 +19,8 @@ import org.web3j.protocol.core.methods.response.EthGetBalance;
 import org.web3j.protocol.core.DefaultBlockParameterName;
 import org.web3j.tx.FastRawTransactionManager;
 import org.web3j.tx.response.PollingTransactionReceiptProcessor;
+
+import org.json.*;
 
 import one.id0.ppass.gen.PPassNetwork;
 import one.id0.ppass.utils.UserAccount;
@@ -26,6 +32,9 @@ public class PPassBackend {
 	final static int versionNum = 0;
 	final static int pollInterval = 2000;
 	final static int pollCount = 1000;
+	final static String loginTempFileName = "/tmp/PPassLogin.tmp";
+	final static byte[] base64Digits = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/".getBytes();
+	public final static int ppassFileVersion = 1;
 
 	// Class variables
 	private Web3j web3;
@@ -34,13 +43,48 @@ public class PPassBackend {
 	private BigInteger gasPrice, maxGas;
 	private CachedUser user;
 	private Logger logger;
+	
+	// Generates a PPass file. Returns the contents of the generated PPass file in the form of a string.
+	public static String generatePPassFile(String username, String password, String keystoreFile, String keystorePassword) throws Exception {
+		// Generate encrypted content bytes using a temporary Crypto (we can do this because we're using the one time pad)
+		Crypto randgenCrypto = new Crypto(null);
+		byte[] randomBytes = Base64.getDecoder().decode(randgenCrypto.generatePassword(base64Digits, 172)); // This should generate 129 bytes. We'll use the first 128.
+		byte[] encryptedContentBytes = new byte[128];
+		System.arraycopy(randomBytes, 0, encryptedContentBytes, 0, 128);
+		
+		// Create an actual Crypto object, get ECKeyPair from keystore file and encrypt it
+		Crypto crypto = new Crypto(username, password, ppassFileVersion, encryptedContentBytes);
+		Credentials keystoreCredentials = WalletUtils.loadCredentials(keystorePassword, keystoreFile);
+		byte[] encryptedKeyPair = crypto.encryptEtherKeys(keystoreCredentials.getEcKeyPair());
+		
+		// Combine them all into a JSON Object, export it into a string, and return
+		JSONObject jsonEncoder = new JSONObject();
+		jsonEncoder.put("version", ppassFileVersion);
+		Base64.Encoder encoder = Base64.getEncoder();
+		jsonEncoder.put("enckeys", encoder.encodeToString(encryptedContentBytes));
+		jsonEncoder.put("enceckeypair", encoder.encodeToString(encryptedKeyPair));
+		String ppassFileContent = jsonEncoder.toString();
+		return ppassFileContent;
+	}
 
-	// Connect constructor. Connects to or creates a PPassNetwork address, and also prepares other backends
-	public PPassBackend(String password, String walletFile, String address, Logger logger) throws Exception {
+	// Constructor. Connects to or creates a PPassNetwork address, and also prepares other backends
+	// Takes in the username of the user, the password for the ppass file, the path of the ppass file,
+	// the address of the ppass network (or NULL if creating one), whether to create a new user on the PPassNetwork,
+	// and a logger object for output.
+	public PPassBackend(String username, String password, String ppassFile, String address, boolean createUser, Logger logger) throws Exception {
 		// Copy over logger
 		this.logger = logger;
 		// Set user to null for now
 		user = null;
+		// Parse PPass file
+		Scanner ppassFileScanner = new Scanner(new File(ppassFile));
+		JSONObject ppassFileObj = new JSONObject(ppassFileScanner.nextLine());
+		int ppassFileVersion = ppassFileObj.getInt("version");
+		byte[] ppassFileContent = Base64.getDecoder().decode(ppassFileObj.getString("enckeys"));
+		byte[] encryptedKeyPair = Base64.getDecoder().decode(ppassFileObj.getString("enceckeypair"));
+		ppassFileScanner.close();
+		// Create Crypto object
+		Crypto crypto = new Crypto(username, password, ppassFileVersion, ppassFileContent);
 		// Set gas price and max gas
 		gasPrice = BigInteger.valueOf(10000);
 		maxGas = BigInteger.valueOf(5000000);
@@ -49,7 +93,9 @@ public class PPassBackend {
 		web3 = Web3j.build(new HttpService());
 		// Try decrypting credentials
 		try {
-			credentials = WalletUtils.loadCredentials(password, walletFile);
+			// Get key pair and create credentials object using that key pair
+			ECKeyPair keyPair = crypto.decryptEtherKeys(encryptedKeyPair);
+			credentials = Credentials.create(keyPair);
 		} catch (CipherException e) {
 			throw new Exception("Couldn't decrypt keystore!");
 		}
@@ -69,6 +115,8 @@ public class PPassBackend {
 			throw new IllegalStateException("Version mismatch!");
 		}
 		logger.log("Connected");
+		// Log in as user or create user
+		user = new CachedUser(ppass, username, password, ppassFileContent, createUser, logger);
 	}
 	
 	/**** Web3j wrappers ****/
@@ -113,18 +161,6 @@ public class PPassBackend {
 	}
 
 	/**** User object wrappers ****/
-	// Setup user account
-	public void userSetup(String username, String masterpass) throws Exception {
-		// Add user
-		user = new CachedUser(ppass, username, masterpass, true, logger);
-	}
-
-	// Login as user
-	public void userLogin(String username, String masterpass) throws Exception {
-		// Login as user
-		user = new CachedUser(ppass, username, masterpass, false, logger);
-	}
-	
 	// Check if logged in. If not, throw an exception.
 	public void checkLogin() throws Exception {
 		if (user == null) {
@@ -223,21 +259,41 @@ public class PPassBackend {
 	public static void main(String[] args) {
 		// Initialize logger
 		Logger logger = new Logger();
+		// Initialize scanner
+		Scanner sc = new Scanner(System.in);
 		// Initialize PPassBackend object
 		PPassBackend self = null;
 		try {
-			if (args.length == 3) {
-				self = new PPassBackend(args[2], args[1], null, logger);
-			} else if (args.length > 3) {
-				self = new PPassBackend(args[2], args[1], args[3], logger);
+			// Get password from user
+			System.out.print("ParaPass password: ");
+			String password = sc.nextLine().replace("\n", "");
+			// Act accordingly to the arguments
+			if (args.length == 5) {
+				if (args[2].equalsIgnoreCase("--createPPass")) { // This option generates a PPass file
+					System.out.print("Keystore file password: ");
+					String keystoreFilePassword = sc.nextLine().replace("\n", "");
+					String ppassFileContent = PPassBackend.generatePPassFile(args[1], password, args[3], keystoreFilePassword);
+					PrintWriter ppassFileWriter = new PrintWriter(new FileWriter(args[4]));
+					ppassFileWriter.write(ppassFileContent);
+					ppassFileWriter.close();
+					System.out.println("Done!");
+					System.exit(0);
+				} else if (args[4].equals("--genesis")) { // This option creates a new PPassNetwork on the blockchain
+					self = new PPassBackend(args[2], password, args[3], null, args[1].equals("create"), logger);
+				} else {
+					self = new PPassBackend(args[2], password, args[3], args[4], args[1].equals("create"), logger);
+				}
 			} else {
-				System.out.println("Usage: ./run [walletFile] [walletPass] [contract address]");
+				System.out.println("Usage: ./run [login|create] [username] [ppassFile] [contract address]\n" +
+						"\tOR: ./run create [username] [ppassFile] --genesis\n" +
+						"\tOR: ./run [username] --createPPass [keystoreFile] [ppassFile]");
+				System.exit(1);
 			}
 		} catch (Exception e) {
-				throw new RuntimeException(e);
+			sc.close();
+			throw new RuntimeException(e);
 		}
 		// Open shell
-		Scanner sc = new Scanner(System.in);
 		String[] line;
 		while (true) {
 			try {
@@ -247,18 +303,6 @@ public class PPassBackend {
 					System.out.println("Contract Address: " + self.getContractAddress());
 					System.out.println("Wallet Address: " + self.getWalletAddress());
 					System.out.println("Wallet Balance: " + self.getBalance());
-				} else if (line[0].equals("setupuser")) { // Creates a user account. Usage: setupuser [username] [masterpass]
-					if (line.length > 2) {
-						self.userSetup(line[1], line[2]);
-					} else {
-						System.out.println("Usage: setupuser [username] [masterpass]");
-					}
-				} else if (line[0].equals("loginuser")) { // Logs a user in. Usage: loginuser [username] [masterpass]
-					if (line.length > 2) {
-						self.userLogin(line[1], line[2]);
-					} else {
-						System.out.println("Usage: loginuser [username] [masterpass]");
-					}
 				} else if (line[0].equals("putpassword")) { // Puts a password. Usage: putpassword [account] [charlist] [length]
 					if (line.length > 3) {
 						String passwordPut = self.putPassword(line[1], line[2], Integer.parseInt(line[3]));

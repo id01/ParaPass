@@ -12,12 +12,18 @@ jint throwException(JNIEnv *env, const char *message)
 	return env->ThrowNew(Exception, message);
 }
 
-// Generates blake2b hash (username hash is 32 byte blake2, account hash is 16 byte blake2)
+// Generates blake2b hash (username hash is 32 byte blake2, account hash is 16 byte blake2). Only works from lengths 1 to 64
 JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_backend_Crypto_blake2b(JNIEnv *env, jobject obj, jbyteArray javaTohash, jint digest_len) {
 	// Get args
 	size_t tohash_len = env->GetArrayLength(javaTohash);
 	byte* tohash = (byte*)malloc(tohash_len);
 	env->GetByteArrayRegion(javaTohash, 0, tohash_len, reinterpret_cast<jbyte*>(tohash));
+
+	// Check length
+	if (digest_len <= 0 || digest_len > 64) {
+		throwException(env, "Blake2b output must be between 1 and 64 bytes");
+		return NULL;
+	}
 
 	// Hash using blake2
 	byte* output = (byte*)malloc((size_t)digest_len);
@@ -42,7 +48,7 @@ JNIEXPORT void JNICALL Java_one_id0_ppass_backend_Crypto_generateRandomBytes(JNI
 	free(bytes);
 }
 
-// Generates key from password and username hash
+// Generates PPass file encryption key from password and username hash
 JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_backend_Crypto_generateKey(JNIEnv *env, jobject obj, jstring javaPassword, jbyteArray javaUserhash) {
 	// Get args
 	jboolean javaFalse = false;
@@ -52,16 +58,16 @@ JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_backend_Crypto_generateKey(JNIEn
 	env->GetByteArrayRegion(javaUserhash, 0, userhash_len, reinterpret_cast<jbyte*>(userhash));
 
 	// Run double hash function
-	byte* generated_key = (byte*)malloc(MASTERKEYLEN);
+	byte* generated_key = (byte*)malloc(HASH_DONE_LEN);
 	if (!double_hash(password.c_str(), password.size(), userhash, userhash_len, generated_key)) {
 		throwException(env, "Couldn't spawn threads");
 		return NULL;
 	}
 
 	// Return byte array with master key
-	jbyteArray output = env->NewByteArray(MASTERKEYLEN);
-	env->SetByteArrayRegion(output, 0, MASTERKEYLEN, reinterpret_cast<jbyte*>(generated_key));
-	secureFree(&generated_key, MASTERKEYLEN);
+	jbyteArray output = env->NewByteArray(HASH_DONE_LEN);
+	env->SetByteArrayRegion(output, 0, HASH_DONE_LEN, reinterpret_cast<jbyte*>(generated_key));
+	secureFree(&generated_key, HASH_DONE_LEN);
 	return output;
 }
 
@@ -165,22 +171,20 @@ JNIEXPORT jstring Java_one_id0_ppass_backend_Crypto_generateRandomPassword(JNIEn
 }
 
 // Encrypts a misc byte array.
-#define MISCKEYLEN 32
-#define MISCNONCELEN 24
-#define MISCHMACLEN 16
-JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_encryptMiscData(JNIEnv *env, jobject obj, jbyteArray javaMasterKey, jbyteArray javaPlaintext) {
+JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_encryptMiscData(JNIEnv *env, jobject obj, jbyteArray javaMiscKey, jbyteArray javaPlaintext) {
 	// Get args
 	size_t plaintext_len = env->GetArrayLength(javaPlaintext);
 	byte* plaintext = (byte*)malloc(plaintext_len);
 	env->GetByteArrayRegion(javaPlaintext, 0, plaintext_len, reinterpret_cast<jbyte*>(plaintext));
-	size_t masterkey_len = env->GetArrayLength(javaMasterKey);
-	byte* masterkey = (byte*)malloc(masterkey_len);
-	env->GetByteArrayRegion(javaMasterKey, 0, masterkey_len, reinterpret_cast<jbyte*>(masterkey));
+	size_t misckey_len = env->GetArrayLength(javaMiscKey);
+	byte* misckey = (byte*)malloc(misckey_len);
+	env->GetByteArrayRegion(javaMiscKey, 0, misckey_len, reinterpret_cast<jbyte*>(misckey));
 
-	/* Generate key */
-	// Misckey is SHA-512 hash of masterkey, truncated to MISCKEYLEN
-	byte* misckey = (byte*)malloc(CryptoPP::SHA512::DIGESTSIZE);
-	CryptoPP::SHA512().CalculateDigest(misckey, masterkey, MASTERKEYLEN);
+	// Check if misckey length is valid
+	if (misckey_len != MISCKEYLEN) {
+		throwException(env, "Invalid misckey length"); // Invalid ciphertext length
+		return NULL;
+	}
 
 	/* Encrypt using XSalsa20-Poly1305 */
 	// Set up output. Input is at plaintext. Our output (ciphertextfull) will be [nonce || hmac || ciphertext]
@@ -199,7 +203,6 @@ JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_encryptMiscData(JNIEnv *e
 	env->SetByteArrayRegion(output, 0, ciphertextfull_len, reinterpret_cast<jbyte*>(ciphertextfull));
 	// Clean up what we allocated
 	secureFree(&plaintext, plaintext_len);
-	secureFree(&masterkey, masterkey_len);
 	secureFree(&misckey, MISCKEYLEN);
 	free(ciphertextfull);
 	// Return
@@ -207,19 +210,20 @@ JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_encryptMiscData(JNIEnv *e
 }
 
 // Decrypts a misc byte array
-JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_decryptMiscData(JNIEnv *env, jobject obj, jbyteArray javaMasterKey, jbyteArray javaCiphertextFull) {
+JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_decryptMiscData(JNIEnv *env, jobject obj, jbyteArray javaMiscKey, jbyteArray javaCiphertextFull) {
 	// Get args
 	size_t ciphertextfull_len = env->GetArrayLength(javaCiphertextFull);
 	byte* ciphertextfull = (byte*)malloc(ciphertextfull_len);
 	env->GetByteArrayRegion(javaCiphertextFull, 0, ciphertextfull_len, reinterpret_cast<jbyte*>(ciphertextfull));
-	size_t masterkey_len = env->GetArrayLength(javaMasterKey);
-	byte* masterkey = (byte*)malloc(masterkey_len);
-	env->GetByteArrayRegion(javaMasterKey, 0, masterkey_len, reinterpret_cast<jbyte*>(masterkey));
+	size_t misckey_len = env->GetArrayLength(javaMiscKey);
+	byte* misckey = (byte*)malloc(misckey_len);
+	env->GetByteArrayRegion(javaMiscKey, 0, misckey_len, reinterpret_cast<jbyte*>(misckey));
 
-	/* Generate key */
-	// Misckey is SHA-512 hash of masterkey, truncated to MISCKEYLEN
-	byte* misckey = (byte*)malloc(CryptoPP::SHA512::DIGESTSIZE);
-	CryptoPP::SHA512().CalculateDigest(misckey, masterkey, MASTERKEYLEN);
+	// Check if misckey length is valid
+	if (misckey_len != MISCKEYLEN) {
+		throwException(env, "Invalid misckey length"); // Invalid ciphertext length
+		return NULL;
+	}
 
 	/* Decrypt using XSalsa20-Poly1305 */
 	// Set up output
@@ -238,7 +242,6 @@ JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_decryptMiscData(JNIEnv *e
 	// Compare HMACs and return if they are equal. Store result in RAM.
 	bool hmacs_equal = (result == 0);
 	// Clean up what we allocated
-	secureFree(&masterkey, masterkey_len);
 	secureFree(&misckey, MISCKEYLEN);
 	secureFree(&plaintext, plaintext_len);
 	free(ciphertextfull);
@@ -248,5 +251,32 @@ JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_decryptMiscData(JNIEnv *e
 		return NULL;
 	}
 	// Return output
+	return output;
+}
+
+// Encrypts or decrypts a one time pad. Note that this is a symmetric operation and therefore to decrypt just replace the plaintext with the ciphertext
+JNIEXPORT jbyteArray Java_one_id0_ppass_backend_Crypto_oneTimePad(JNIEnv *env, jobject obj, jbyteArray javaPlaintext, jbyteArray javaKey) {
+	// Get args, make sure lengths of plaintext and key are equal. Ciphertext will be the same length as the plaintext.
+	size_t key_len = env->GetArrayLength(javaKey);
+	byte* key = (byte*)malloc(key_len);
+	env->GetByteArrayRegion(javaKey, 0, key_len, reinterpret_cast<jbyte*>(key));
+	size_t plaintext_len = env->GetArrayLength(javaPlaintext);
+	byte* plaintext = (byte*)malloc(plaintext_len);
+	env->GetByteArrayRegion(javaPlaintext, 0, plaintext_len, reinterpret_cast<jbyte*>(plaintext));
+	if (!(key_len == plaintext_len)) {
+		throwException(env, "Lengths of key and plaintext in OTP must be equal!"); // Invalid lengths
+		return NULL;
+	}
+
+	// Run OTP
+	byte* ciphertext = (byte*)malloc(plaintext_len);
+	one_time_pad(plaintext, key, ciphertext, plaintext_len);
+
+	// Copy to output, wipe, and return
+	jbyteArray output = env->NewByteArray(plaintext_len);
+	env->SetByteArrayRegion(output, 0, plaintext_len, reinterpret_cast<jbyte*>(ciphertext));
+	secureFree(&key, key_len);
+	secureFree(&plaintext, plaintext_len);
+	secureFree(&ciphertext, plaintext_len);
 	return output;
 }

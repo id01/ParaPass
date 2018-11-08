@@ -7,6 +7,18 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#undef one_id0_ppass_backend_Crypto_PWHASHLEN
+#define one_id0_ppass_backend_Crypto_PWHASHLEN 8L
+#undef one_id0_ppass_backend_Crypto_USERHASHLEN
+#define one_id0_ppass_backend_Crypto_USERHASHLEN 32L
+#undef one_id0_ppass_backend_Crypto_ACCOUNTHASHLEN
+#define one_id0_ppass_backend_Crypto_ACCOUNTHASHLEN 16L
+#undef one_id0_ppass_backend_Crypto_BLAKE2HASHLEN
+#define one_id0_ppass_backend_Crypto_BLAKE2HASHLEN 32L
+#undef one_id0_ppass_backend_Crypto_PRNGSTATESIZE
+#define one_id0_ppass_backend_Crypto_PRNGSTATESIZE 32L
+#undef one_id0_ppass_backend_Crypto_CIPHERTEXTLEN
+#define one_id0_ppass_backend_Crypto_CIPHERTEXTLEN 160L
 /*
  * Class:     one_id0_ppass_backend_Crypto
  * Method:    blake2b
@@ -77,6 +89,14 @@ JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_backend_Crypto_encryptMiscData
  * Signature: ([B[B)[B
  */
 JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_backend_Crypto_decryptMiscData
+  (JNIEnv *, jobject, jbyteArray, jbyteArray);
+
+/*
+ * Class:     one_id0_ppass_backend_Crypto
+ * Method:    oneTimePad
+ * Signature: ([B[B)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_one_id0_ppass_backend_Crypto_oneTimePad
   (JNIEnv *, jobject, jbyteArray, jbyteArray);
 
 #ifdef __cplusplus

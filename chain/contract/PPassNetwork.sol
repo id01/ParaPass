@@ -30,11 +30,7 @@ contract PPassNetwork {
 
 	/* Checks whether a uid is free (not taken) */
 	function checkUserFree(bytes32 _uid) public view returns (bool free) {
-		if (users[_uid].owner == 0) {
-			return true;
-		} else {
-			return false;
-		}
+		return (users[_uid].owner == 0);
 	}
 
 	/* Put Password */
@@ -55,7 +51,7 @@ contract PPassNetwork {
 		return users[_uid].passwords[_aid];
 	}
 
-	/* Get All Accounts */
+	/* Get All Accounts for a user */
 	function getAllAccounts(bytes32 _uid) public view returns (bytes16[] accounts) {
 		return users[_uid].accounts;
 	}

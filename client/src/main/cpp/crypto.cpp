@@ -1,17 +1,17 @@
 #include "crypto.h"
 
 /**** UTILITY FUNCTIONS ****/
+// Wipes a memory region
 void wipe(byte* ptr, size_t ptr_len) {
-	for (size_t i=0; i<ptr_len; i++) {
-		ptr[i] = 0;
-	}
+	memset(ptr, 0, ptr_len);
 }
 
+// Frees a pointer to a pointer to a memory region securely
 void secureFree(byte** ptrptr, size_t ptr_len) {
 	byte* ptr = *ptrptr;
 	wipe(ptr, ptr_len);
 	free(ptr);
-	ptrptr = NULL;
+	*ptrptr = NULL;
 }
 
 /**** COMPRESSION FUNCTIONS ****/
@@ -309,6 +309,14 @@ bool decrypt(const byte* ciphertext, const byte* masterkey, byte* output) {
 	return hmacs_equal;
 }
 
+// Encrypts/Decrypts a byte array with the one-time pad. Note that the one-time pad is a symmetric operation, so we don't need
+// an additional function for decryption. This should ONLY be used when either plaintext or key (or both) are random.
+void one_time_pad(byte* ptorct, byte* key, byte* out, size_t len) {
+	for (size_t i=0; i<len; i++) {
+		out[i] = ptorct[i] ^ key[i];
+	}
+}
+
 /**** HASHING FUNCTIONS ****/
 
 // Hash is blake(scrypt(k) || argon2(k))
@@ -364,8 +372,8 @@ bool double_hash(const char* pass, const size_t pass_len, const byte* salt, cons
 		return false;
 	}
 
-	// Hash one final time to decrease length
-	CryptoPP::BLAKE2b(false, MASTERKEYLEN).CalculateDigest(out, hashes, HASH_FULL_LEN);
+	// Run Scrypt one last time to decrease length
+	scrypt(hashes, HASH_FULL_LEN, NULL, 0, 1, 0, 0, out, HASH_DONE_LEN);
 	// Free everything and return
 	secureFree(&hashes, HASH_FULL_LEN);
 	return true;
@@ -380,7 +388,7 @@ int main() {
 	const byte username[] = "someuser1123";
 	// KDF
 	puts("Running KDF...");
-	byte* key = (byte*)malloc(MASTERKEYLEN);
+	byte* key = (byte*)malloc(HASH_DONE_LEN); // This is larger now!
 	if (!double_hash(password, strlen(password), username, strlen((const char*)username), key)) {
 		puts("Error spawning pthread");
 	}

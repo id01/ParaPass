@@ -3,6 +3,7 @@
 <?import com.jfoenix.controls.JFXButton?>
 <?import com.jfoenix.controls.JFXTextArea?>
 <?import com.jfoenix.controls.JFXTextField?>
+<?import com.jfoenix.controls.JFXTreeTableView?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.SplitPane?>
@@ -32,6 +33,7 @@
                               <JFXButton onAction="#createNewAccount" styleClass="darkInput" text="+" textFill="#5b5b5b" BorderPane.alignment="CENTER" />
                            </right>
                         </BorderPane>
+                        <JFXTreeTableView fx:id="searchTreeTable" prefHeight="490.0" showRoot="false" stylesheets="@css/jfx-table-view.css" />
                      </children>
                   </VBox>
                   <HBox alignment="CENTER">
@@ -47,7 +49,7 @@
                                     </Label>
                                  </left>
                               </BorderPane>
-                              <JFXTextArea fx:id="accountDescription" editable="false" labelFloat="true" prefHeight="394.0" prefWidth="444.0" styleClass="darkInput" text="Select an account using the menu to the left.">
+                              <JFXTextArea fx:id="accountDescription" editable="false" prefHeight="394.0" prefWidth="444.0" promptText="Enter Description Here..." styleClass="darkInput" text="Select an account using the menu to the left.">
                                  <VBox.margin>
                                     <Insets bottom="20.0" top="10.0" />
                                  </VBox.margin>
