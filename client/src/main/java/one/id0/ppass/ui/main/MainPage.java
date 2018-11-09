@@ -1,4 +1,4 @@
-package one.id0.ppass.ui;
+package one.id0.ppass.ui.main;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -13,8 +13,10 @@ import javafx.fxml.FXML;
 //import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.control.SplitPane;
+import javafx.scene.Node;
 //import javafx.scene.control.Alert;
 import javafx.scene.control.Label;
 import javafx.scene.control.TreeItem;
@@ -30,8 +32,6 @@ import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 
 import com.jfoenix.controls.JFXButton;
-import com.jfoenix.controls.JFXTextArea;
-import com.jfoenix.controls.JFXHamburger;
 import com.jfoenix.controls.JFXRippler;
 import com.jfoenix.controls.JFXPopup;
 import com.jfoenix.controls.JFXTextField;
@@ -47,6 +47,9 @@ import one.id0.ppass.backend.PPassBackend;
 import one.id0.ppass.utils.UserAccount;
 import one.id0.ppass.utils.UserPassword;
 import one.id0.ppass.server.PPassServer;
+import one.id0.ppass.ui.Page;
+import one.id0.ppass.ui.popup.DescriptionPage;
+import one.id0.ppass.ui.popup.PastPasswordPage;
 import one.id0.ppass.server.JSONServer;
 
 public class MainPage extends Page {	
@@ -54,21 +57,13 @@ public class MainPage extends Page {
 	private PPassBackend backend;
 	private ObservableList<UserAccount> userAccounts;
 	private TreeItem<UserAccount> accountRoot;
-	private UserAccount selectedAccount;
-	private JFXHamburger accountHamburger;
-	private JFXListView<Label> accountHamburgerActions;
 	private PPassServer server;
 	
 	// FXML elements that we need to interact with
-	@FXML private JFXTreeTableView<UserAccount> searchTreeTable;
 	@FXML private StackPane everythingPane;
-	@FXML private SplitPane containerPane;
-	@FXML private VBox searchMenu;
+	@FXML private AnchorPane backgroundPane;
 	@FXML private JFXTextField searchInput;
-	@FXML private BorderPane accountTitlePane;
-	@FXML private Label accountTitle;
-	@FXML private JFXTextArea accountDescription;
-	@FXML private JFXButton accountCopyButton;
+	@FXML private JFXTreeTableView<UserAccount> searchTreeTable;
 
 	// Constructor
 	public MainPage(Stage stage, PPassBackend backend) throws IOException {
@@ -78,43 +73,16 @@ public class MainPage extends Page {
 		
 		// Copy over backend
 		this.backend = backend;
-		// Current account selected is none
-		selectedAccount = null;
 		// Remove focus from inputs if background is clicked
 		everythingPane.addEventHandler(MouseEvent.MOUSE_PRESSED, e->{
 			everythingPane.requestFocus();
 		});
-		containerPane.addEventHandler(MouseEvent.MOUSE_PRESSED, e->{
-			containerPane.requestFocus();
+		backgroundPane.addEventHandler(MouseEvent.MOUSE_PRESSED, e->{
+			backgroundPane.requestFocus();
 		});
 		
-		// Initialize accountHamburger and searchTreeTable
-		initAccountHamburger();
+		// Initialize searchTreeTable
 		initSearchTreeTable();
-		
-		// Initialize saving mechanism for accountDescription
-		accountDescription.focusedProperty().addListener((o, oldVal, newVal)->{
-			if (newVal) { // We just got focus. Don't do anything
-			} else { // We just lost focus. Save our new description in the background and then update the sidebar.
-				// First, save all vars just in case they change
-				String currentSelectedAccountName = selectedAccount.accountName.getValue();
-				byte[] currentSelectedAccountID = selectedAccount.accountID;
-				String currentSelectedDescription = accountDescription.getText(); 
-				// Create task to update and run it
-				Task<Void> updateTask = new Task<Void>() {
-					public Void call() throws Exception {
-						backend.updateAccountCache(currentSelectedAccountID, true, currentSelectedDescription, -1);
-						try {
-							updateSearchTreeWithAccountAsync(currentSelectedAccountName);
-						} catch (Exception e) {
-							logger.log("Couldn't update search tree: " + e.getMessage());
-						}
-						return null;
-					}
-				};
-				new Thread(updateTask).start();
-			}
-		});
 		
 		// Show our new scene
 		super.enterStage();
@@ -124,46 +92,126 @@ public class MainPage extends Page {
 		server.init(backend, false, logger);
 	}
 	
-	// Initializes accountHamburger
-	public void initAccountHamburger() {
-		// Create accountHamburger actions (new password, pin password, past passwords)
-		accountHamburgerActions = new JFXListView<Label>();
+	/* ACCOUNT OPTIONS POPUP CREATOR AND ACTIONS */
+	// Shows the account options popup for an account at a controller node
+	public void showAccountOptionsPopup(Node control, UserAccount account) {
+		// Create account options popup actions (copy password, pin password, new password, past passwords)
+		JFXListView<Label> popupActions = new JFXListView<Label>();
+		Label copyPasswordButton = new Label("Copy password");
+		Label pinPasswordButton = new Label("Pin password");
 		Label newPasswordButton = new Label("New password");
-		Label pinPasswordButton = new Label("Pin password"); // Note: This can also become the "Unpin password" button
+		if (account.pinned.getValue().equals("pinned")) {
+			pinPasswordButton.setText("Unpin password");
+		}
 		Label pastPasswordsButton = new Label("Past passwords");
-		accountHamburgerActions.getItems().setAll(newPasswordButton, pinPasswordButton, pastPasswordsButton);
+		Label accountPropertiesButton = new Label("Properties");
+		popupActions.getItems().setAll(copyPasswordButton, pinPasswordButton,
+				newPasswordButton, pastPasswordsButton, accountPropertiesButton);
+		
 		// Create wrappers for JFXListView
-		accountHamburger = new JFXHamburger();
-		accountHamburger.getStyleClass().add("darkHamburger");
-		accountHamburger.setDisable(true);
-		JFXPopup accountHamburgerPopup = new JFXPopup(accountHamburgerActions);
-		JFXRippler accountHamburgerRippler = new JFXRippler(accountHamburger, JFXRippler.RipplerMask.CIRCLE,
-				JFXRippler.RipplerPos.BACK);
-		// Initialize accountHamburger and add to accountTitlePane
-		accountHamburgerRippler.setOnMouseClicked(e -> accountHamburgerPopup.show(accountHamburgerRippler,
-				JFXPopup.PopupVPosition.TOP, JFXPopup.PopupHPosition.RIGHT));
-		accountTitlePane.setRight(accountHamburgerRippler);
-		// Set event handler for accountHamburger actions to run the selected function and close the popup
-		accountHamburgerActions.setOnMouseClicked(e->{
-			Label selected = accountHamburgerActions.getSelectionModel().getSelectedItem();
-			if (selected == newPasswordButton) {
-				createNewPassword(selectedAccount.accountName.getValue(), false);
+		JFXPopup popup = new JFXPopup(popupActions);
+		// Set event handler for popup actions to run the selected function and close the popup
+		popupActions.setOnMouseClicked(e->{
+			Label selected = popupActions.getSelectionModel().getSelectedItem();
+			if (selected == copyPasswordButton) {
+				copyPassword(account);
 			} else if (selected == pinPasswordButton) {
-				togglePasswordPin(selectedAccount);
+				togglePasswordPin(account);
+			} else if (selected == newPasswordButton) {
+				createNewPassword(account.accountName.getValue(), false);
 			} else if (selected == pastPasswordsButton) {
-				showPastPasswords();
+				showPastPasswords(account);
+			} else if (selected == accountPropertiesButton) {
+				showAccountProperties(account);
 			} else {
 				logger.logErr("How is this even possible? You clicked a nonexistent button.");
 			}
-			accountHamburgerPopup.hide();
+			popup.hide();
 		});
+		
+		// Show popup
+		popup.show(control);
 	}
 	
+	// Copies a specified account's password
+	private void copyPassword(UserAccount account) {
+		try {
+			if (account != null) {
+				// Get password and put into clipboard
+				String[] accnpass = backend.getPassword(account.accountID);
+				ClipboardContent copiedPassword = new ClipboardContent();
+				copiedPassword.putString(accnpass[1]);
+				Clipboard.getSystemClipboard().setContent(copiedPassword);
+			} else {
+				logger.logErr("Account specified is null!");
+			}
+		} catch (Exception e) {
+			logger.logErr("Couldn't copy password: " + e.getMessage());
+		}
+	}
+	
+	// Creates a new password for a specified account. Takes a UserAccount instance with the account to add. 
+	// Setting addingAccount to true adds the account to the search tree and changes a little of the prompt text.
+	protected void createNewPassword(String accountToAdd, boolean addingAccount) {
+		AccountAddDialog accountAddDialog = new AccountAddDialog(backend, everythingPane, addingAccount, accountToAdd, new Runnable() {
+			@Override
+			public void run() {
+				// Set backend logger back
+				backend.setLogger(logger);
+				// Update search tree
+				if (addingAccount) {
+					try {
+						updateSearchTreeWithAccountAsync(accountToAdd);
+					} catch (Exception e) {
+						logger.log("Couldn't update search tree: " + e.getMessage());
+					}
+				}
+			}
+		});
+		accountAddDialog.show();
+	}
+	
+	// Toggles a password's pin state
+	protected void togglePasswordPin(UserAccount account) {
+		try {
+			if (account.pinned.getValue().equals("")) {
+				backend.updateAccountCache(account.accountID, true, null, 1);
+				account.pinned.set("pinned");
+			} else {
+				backend.updateAccountCache(account.accountID, true, null, 0);
+				account.pinned.set("");
+			}
+		} catch (Exception e) {
+			logger.log("Failed to toggle password pin: " + e.getMessage());
+		}
+	}
+	
+	// Shows past passwords using a PastPasswordPage on a popup stage
+	private void showPastPasswords(UserAccount account) {
+		try {
+			ArrayList<UserPassword> pastPasswords = backend.getPastPasswords(account.accountID);
+			Stage popupStage = new Stage();
+			new PastPasswordPage(popupStage, pastPasswords);
+			popupStage.show();
+		} catch (Exception e) {
+			logger.log("Failed to show past passwords: " + e.getMessage());
+		}
+	}
+	
+	// Shows properties of an account using a DescriptionPage on a popup stage
+	private void showAccountProperties(UserAccount account) {
+		try {
+			Stage popupStage = new Stage();
+			new DescriptionPage(popupStage, backend, account);
+			popupStage.show();
+		} catch (Exception e) {
+			logger.logErr("Failed to show account properties: " + e.getMessage());
+		}
+	}
+	
+	/* TREETABLEVIEW FOR SEARCHING PASSWORDS INITIALIZATION UPDATING AND ACTIONS */
 	// Initializes searchTreeTable (the JFXTreeTable on the left)
 	private void initSearchTreeTable() {
-		// Get pinPasswordButton
-		Label pinPasswordButton = accountHamburgerActions.getItems().get(1);
-		
 		// Initialize searchTreeTable columns
 		// Account name column
 		JFXTreeTableColumn<UserAccount, String> accountNameColumn = new JFXTreeTableColumn<UserAccount, String>("Name");
@@ -214,23 +262,13 @@ public class MainPage extends Page {
 	//		searchTreeTable.getStyleClass().add("dark");
 			searchTreeTable.getSelectionModel().selectedItemProperty().addListener((o, oldVal, newVal) -> {
 				if (newVal != null) {
-					// Change selectedAccount and right panel
-					selectedAccount = newVal.getValue();
-					accountTitle.setText(selectedAccount.accountName.getValue());
-					accountDescription.setText(selectedAccount.description.getValue());
-					accountDescription.setEditable(true);
-					accountCopyButton.setText("Copy Password");
-					accountCopyButton.setDisable(false);
-					accountHamburger.setDisable(false);
-					// Toggle pinPasswordButton text based on whether the selected password is currently pinned
-					if (selectedAccount.pinned.getValue().equals("")) {
-						pinPasswordButton.setText("Pin password");
-					} else {
-						pinPasswordButton.setText("Unpin password");
-					}
-					// Update last accessed timestamp for selectedAccount
+					// Get selected account
+					UserAccount account = newVal.getValue();
+					// Show account options popup
+					showAccountOptionsPopup(searchTreeTable, account);
+					// Update last accessed timestamp for this account
 					try {
-						backend.updateAccountCache(selectedAccount.accountID, true, null, -1);
+						backend.updateAccountCache(account.accountID, true, null, -1);
 					} catch (Exception e) {
 						logger.log("Failed to update last accessed timestamp: " + e.getMessage());
 					}
@@ -259,68 +297,10 @@ public class MainPage extends Page {
 					}
 				}
 				// This is a new value. Add to accountRoot.
-				// TODO: Somehow it looks like this adds items to the search results, not the search options,
-				// and therefore changing the search query removes them.
 				userAccounts.add(userAccountToAdd);
 				// accountRoot.getChildren().add(new RecursiveTreeItem<UserAccount>(userAccountToAdd, RecursiveTreeObject::getChildren));
 			}
 		});
-	}
-	
-	// Copies the currently selected account's password if an account is selected
-	@FXML
-	protected void copyPassword(ActionEvent event) {
-		try {
-			if (selectedAccount != null) {
-				// Get password and put into clipboard
-				String[] accnpass = backend.getPassword(selectedAccount.accountID);
-				ClipboardContent copiedPassword = new ClipboardContent();
-				copiedPassword.putString(accnpass[1]);
-				Clipboard.getSystemClipboard().setContent(copiedPassword);
-				// Change accountCopyButton text without changing the width
-				accountCopyButton.setText("Copied!");
-				accountCopyButton.setMinWidth(126);
-				accountCopyButton.setPrefWidth(126);
-			}
-		} catch (Exception e) {
-			logger.logErr("Couldn't copy password: " + e.getMessage());
-		}
-	}
-	
-	// Creates a new password for a specified account. Takes a UserAccount instance with the account to add. 
-	// Setting addingAccount to true adds the account to the search tree and changes a little of the prompt text.
-	protected void createNewPassword(String accountToAdd, boolean addingAccount) {
-		AccountAddDialog accountAddDialog = new AccountAddDialog(backend, everythingPane, addingAccount, accountToAdd, new Runnable() {
-			@Override
-			public void run() {
-				// Set backend logger back
-				backend.setLogger(logger);
-				// Update search tree
-				if (addingAccount) {
-					try {
-						updateSearchTreeWithAccountAsync(accountToAdd);
-					} catch (Exception e) {
-						logger.log("Couldn't update search tree: " + e.getMessage());
-					}
-				}
-			}
-		});
-		accountAddDialog.show();
-	}
-	
-	// Toggles a password's pin state
-	protected void togglePasswordPin(UserAccount account) {
-		try {
-			if (account.pinned.getValue().equals("")) {
-				backend.updateAccountCache(account.accountID, true, null, 1);
-				account.pinned.set("pinned");
-			} else {
-				backend.updateAccountCache(account.accountID, true, null, 0);
-				account.pinned.set("");
-			}
-		} catch (Exception e) {
-			logger.log("Failed to toggle password pin: " + e.getMessage());
-		}
 	}
 	
 	// Creates a new password for the account in Input
@@ -328,18 +308,6 @@ public class MainPage extends Page {
 	protected void createNewAccount() {
 		if (!searchInput.getText().equals("")) { // We use toLowerCase() here to remove visual gitches.
 			createNewPassword(searchInput.getText().toLowerCase(), true); // Our backend is already not case-sensitive.
-		}
-	}
-	
-	// Shows past passwords using a PastPasswordPage on a popup stage
-	protected void showPastPasswords() {
-		try {
-			ArrayList<UserPassword> pastPasswords = backend.getPastPasswords(selectedAccount.accountID);
-			Stage popupStage = new Stage();
-			new PastPasswordPage(popupStage, pastPasswords);
-			popupStage.show();
-		} catch (Exception e) {
-			logger.log("Failed to show past passwords: " + e.getMessage());
 		}
 	}
 }

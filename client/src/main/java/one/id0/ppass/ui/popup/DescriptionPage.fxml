@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import com.jfoenix.controls.JFXButton?>
+<?import com.jfoenix.controls.JFXTextArea?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<AnchorPane prefWidth="442.0" styleClass="dark" stylesheets="@../css/default.css" xmlns="http://javafx.com/javafx/8.0.141" xmlns:fx="http://javafx.com/fxml/1">
+   <children>
+      <VBox fx:id="containerBox" alignment="TOP_RIGHT" prefWidth="546.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+         <children>
+            <BorderPane>
+               <VBox.margin>
+                  <Insets bottom="8.0" left="8.0" right="8.0" top="8.0" />
+               </VBox.margin>
+               <right>
+                  <JFXButton fx:id="copyButton" onAction="#copyPassword" prefHeight="26.0" prefWidth="124.0" styleClass="darkInput" text="Copy Password" textFill="#5b5b5b" BorderPane.alignment="CENTER" />
+               </right>
+               <left>
+                  <JFXButton onAction="#closeStage" text="Back" textFill="#5b5b5b" BorderPane.alignment="CENTER" />
+               </left>
+               <top>
+                  <HBox alignment="CENTER" BorderPane.alignment="CENTER">
+                     <children>
+                        <VBox alignment="CENTER" prefHeight="429.0" prefWidth="444.0">
+                           <children>
+                              <BorderPane fx:id="accountTitlePane">
+                                 <left>
+                                    <Label fx:id="accountTitle" prefHeight="35.0" prefWidth="397.0" text="Loading..." textFill="#5b5b5b" BorderPane.alignment="CENTER">
+                                       <font>
+                                          <Font size="30.0" />
+                                       </font>
+                                    </Label>
+                                 </left>
+                              </BorderPane>
+                              <JFXTextArea fx:id="accountDescription" focusColor="#686868" prefHeight="394.0" prefWidth="444.0" promptText="Enter Description Here..." styleClass="darkInput">
+                                 <VBox.margin>
+                                    <Insets bottom="20.0" top="10.0" />
+                                 </VBox.margin>
+                              </JFXTextArea>
+                           </children>
+                        </VBox>
+                     </children>
+                  </HBox>
+               </top>
+            </BorderPane>
+         </children>
+      </VBox>
+   </children>
+</AnchorPane>

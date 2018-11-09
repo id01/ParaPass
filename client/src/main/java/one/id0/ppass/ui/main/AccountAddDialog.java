@@ -1,4 +1,4 @@
-package one.id0.ppass.ui;
+package one.id0.ppass.ui.main;
 
 import com.jfoenix.controls.JFXButton;
 

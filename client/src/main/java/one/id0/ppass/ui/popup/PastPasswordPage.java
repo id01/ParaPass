@@ -1,4 +1,4 @@
-package one.id0.ppass.ui;
+package one.id0.ppass.ui.popup;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -24,6 +24,7 @@ import com.jfoenix.controls.cells.editors.TextFieldEditorBuilder;
 import com.jfoenix.controls.cells.editors.base.GenericEditableTreeTableCell;
 import com.jfoenix.controls.datamodels.treetable.RecursiveTreeObject;
 
+import one.id0.ppass.ui.Page;
 import one.id0.ppass.utils.UserPassword;
 
 public class PastPasswordPage extends Page {

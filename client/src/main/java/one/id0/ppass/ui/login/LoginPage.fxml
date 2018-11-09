@@ -6,7 +6,6 @@
 <?import com.jfoenix.controls.JFXTextField?>
 <?import com.jfoenix.controls.JFXTogglePane?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.image.Image?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.AnchorPane?>
@@ -16,15 +15,22 @@
 <?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.text.Font?>
 
 <StackPane fx:id="everythingPane" xmlns="http://javafx.com/javafx/8.0.141" xmlns:fx="http://javafx.com/fxml/1">
    <children>
-      <AnchorPane prefHeight="540.0" prefWidth="848.0" styleClass="dark" stylesheets="@css/default.css">
+      <Pane fx:id="selectKeystorePane" prefHeight="67.0" prefWidth="308.0">
+         <children>
+            <JFXButton fx:id="selectKeystoreButton" layoutY="22.0" onAction="#selectKeystoreFile" text="Select Keystore File..." textFill="#5b5b5b" />
+            <Label fx:id="keystoreFileLabel" layoutX="189.0" layoutY="27.0" text="No File Selected" textFill="#363636" />
+         </children>
+      </Pane>
+      <AnchorPane prefHeight="540.0" prefWidth="848.0" styleClass="dark" stylesheets="@../css/default.css">
          <children>
             <Pane fx:id="loginFormPane" layoutX="229.0" layoutY="142.0" prefHeight="328.0" prefWidth="392.0" styleClass="dark">
                <children>
                   <JFXTogglePane layoutX="23.0" layoutY="243.0" prefHeight="26.0" prefWidth="308.0" />
-                  <GridPane layoutX="42.0" prefHeight="268.0" prefWidth="308.0">
+                  <GridPane fx:id="loginFormGridPane" layoutX="42.0" prefHeight="268.0" prefWidth="308.0">
                     <columnConstraints>
                       <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
                     </columnConstraints>
@@ -39,20 +45,21 @@
                         <JFXPasswordField fx:id="passwordInput" labelFloat="true" prefHeight="26.0" prefWidth="308.0" promptText="Password" styleClass="darkInput" GridPane.rowIndex="1" />
                         <BorderPane GridPane.rowIndex="3">
                            <left>
-                              <JFXCheckBox fx:id="rememberMeCheckbox" checkedColor="#5b5b5b" text="Remember Me" textFill="#5b5b5b" BorderPane.alignment="CENTER">
-                                 <tooltip>
-                                    <Tooltip text="Remember Me - Logs you in automatically, but can be less secure" />
-                                 </tooltip>
-                              </JFXCheckBox>
+                              <JFXCheckBox fx:id="rememberMeCheckbox" checkedColor="#5b5b5b" text="Remember Me" textFill="#5b5b5b" BorderPane.alignment="CENTER" />
                            </left>
                            <right>
                               <JFXButton fx:id="loginButton" disable="true" onAction="#handleLogin" prefHeight="36.0" prefWidth="87.0" style="-fx-background-color: #335577;" text="Login" BorderPane.alignment="CENTER" />
                            </right>
                         </BorderPane>
-                        <Pane prefHeight="200.0" prefWidth="200.0" GridPane.rowIndex="2">
+                        <Pane fx:id="selectPPassPane" prefHeight="200.0" prefWidth="200.0" GridPane.rowIndex="2">
                            <children>
                               <JFXButton fx:id="selectPPassButton" layoutY="21.0" onAction="#selectPPassFile" text="Select PPass File..." textFill="#5b5b5b" />
                               <Label fx:id="ppassFileLabel" layoutX="189.0" layoutY="26.0" text="No File Selected" textFill="#363636" />
+                              <JFXButton fx:id="createPPassButton" layoutY="46.0" onAction="#switchToCreatePPass" prefHeight="22.0" prefWidth="111.0" text="Need a PPass File?" textFill="#4b5f7c">
+                                 <font>
+                                    <Font size="10.0" />
+                                 </font>
+                              </JFXButton>
                            </children>
                         </Pane>
                      </children>
