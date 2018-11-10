@@ -26,12 +26,10 @@ import com.jfoenix.controls.JFXListView;
 import one.id0.ppass.backend.PPassBackend;
 import one.id0.ppass.utils.UserAccount;
 import one.id0.ppass.utils.UserPassword;
-import one.id0.ppass.server.PPassServer;
 import one.id0.ppass.ui.HoverTooltip;
 import one.id0.ppass.ui.Page;
 import one.id0.ppass.ui.popup.DescriptionPage;
 import one.id0.ppass.ui.popup.PastPasswordPage;
-import one.id0.ppass.server.JSONServer;
 
 public class MainPage extends Page {
 	// Class variables
@@ -39,7 +37,6 @@ public class MainPage extends Page {
 	private ObservableList<UserAccount> userAccounts;
 	private FilteredList<UserAccount> filteredAccounts;
 	private SortedList<UserAccount> sortedAccounts;
-	private PPassServer server;
 	
 	// FXML elements that we need to interact with
 	@FXML private StackPane everythingPane;
@@ -75,10 +72,6 @@ public class MainPage extends Page {
 		
 		// Show our new scene
 		super.enterStage();
-		
-		// Create JSONServer and initialize. If you don't want to use the webextension, import and use NullServer instead.
-		server = new JSONServer();
-		server.init(backend, false, logger);
 	}
 	
 	/* SEARCH RESULT ACTIONS */

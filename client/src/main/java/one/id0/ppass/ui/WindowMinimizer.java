@@ -2,11 +2,11 @@ package one.id0.ppass.ui;
 
 import java.applet.Applet;
 import java.awt.SystemTray;
+import java.awt.Toolkit;
 import java.awt.TrayIcon;
 import java.awt.PopupMenu;
 import java.awt.MenuItem;
 import java.awt.Image;
-import java.awt.Toolkit;
 import java.awt.MediaTracker;
 import java.awt.event.ActionListener;
 
@@ -40,7 +40,7 @@ public class WindowMinimizer extends Applet {
 				SystemTray tray = SystemTray.getSystemTray();
 				Toolkit toolkit = Toolkit.getDefaultToolkit();
 				MediaTracker tracker = new MediaTracker(this);
-				Image image = toolkit.getImage("mandel.gif");
+				Image image = toolkit.getImage(getClass().getResource("/icons/icon.png"));
 				tracker.addImage(image, 0);
 				tracker.waitForAll();
 				// Create popup menu and menu items
@@ -60,7 +60,7 @@ public class WindowMinimizer extends Applet {
 				popup.add(showItem);
 				popup.add(closeItem);
 				// Create tray icon and add to tray
-				trayIcon = new TrayIcon(image, "Title", popup);
+				trayIcon = new TrayIcon(image, "ParaPass", popup);
 				trayIcon.addActionListener(showListener);
 				tray.add(trayIcon);
 			} catch (Exception ex) {

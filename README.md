@@ -15,7 +15,7 @@ Passwords for the Paranoid
 	* CryptoPP
 	* Pthread
 	* JNI
-	* JavaFX
+	* JavaFX, AWT
 	* Maven (will install other dependencies)
 * Build
 	* Generate `PPassNetwork.java` by building `PPassNetwork.sol` with the `web3j` command. Put this in `client/src/gen/java/id0/ppass/gen/PPassNetwork.java`
@@ -26,14 +26,14 @@ Passwords for the Paranoid
 	* Note: WebExtension server can be disabled by changing JSONServer to NullServer
 
 ### Todo
-* "Remember me" feature, securely, somehow...
-* Make JSONServer key more secure
-* I still need an icon...
+* I still need a taskbar icon...
 
 ### Changelog
-* Version 0.0.7 (XX/XX/XXXX)
-	* (TODO) Removed webextension and server due to security concerns
-	* (TODO) Dual-Factor Authentication - ".ppass" file required for login, keystore file no longer necessary. Also increases entropy of key.
+* Version 0.1.0 (11/10/2018)
+	* Major UI overhaul
+	* Autologin "remember me" feature (not secure!)
+	* Dual-Factor Authentication - ".ppass" file (with keys encrypted using one time pad) required for login, keystore file no longer necessary. Also increases entropy of key.
+	* Removed webextension and server due to security concerns
 * Version 0.0.6 (06/19/2018)
 	* Created barebones of a webextension (not usable yet without leaking password and probably server key due to lack of masking)
 	* Connected "create account" function to GUI
