@@ -17,3 +17,4 @@ webextension/popup/tweetnacl/tweetnacl.js
 **/.classpath
 **/.settings
 **/.gradle
+export
