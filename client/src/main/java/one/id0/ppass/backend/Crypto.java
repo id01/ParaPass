@@ -5,6 +5,8 @@ import java.util.Base64;
 
 import org.web3j.crypto.ECKeyPair;
 
+import cz.adamh.utils.NativeUtils;
+
 // Wrapper class for C++ Cryptography backend
 public class Crypto {
 	// Constants
@@ -28,8 +30,19 @@ public class Crypto {
 	private native byte[] encryptMiscData(byte[] javaMasterKey, byte[] javaPlaintext);
 	private native byte[] decryptMiscData(byte[] javaMasterKey, byte[] javaCiphertextFull) throws Exception;
 	private native byte[] oneTimePad(byte[] javaPlaintext, byte[] javaKey) throws Exception;
+	// Load the native crypto library from jar or path
 	static {
-		System.loadLibrary("Crypto");
+		try {
+			NativeUtils.loadLibraryFromJar("/lib/libCrypto.so");
+		} catch (Exception e) {
+			try {
+				System.loadLibrary("Crypto");
+			} catch (Exception ee) {
+				System.out.println("Error on path library load: " + ee.getMessage());
+				System.out.println();
+				System.out.println("Error on jar library load: " + e.getMessage());
+			}
+		}
 	}
 	
 	// Class variables.

@@ -11,7 +11,7 @@ import one.id0.ppass.utils.UserAccount;
 
 public class SearchEntry extends VBox {
 	// Directory where icons are
-	private final String ICONDIR = "/icons/";
+	private final String ICONDIR = "/icons";
 	// Icon sizes
 	private static final int SMALL = 16;
 	private static final int MEDIUM = 20;
