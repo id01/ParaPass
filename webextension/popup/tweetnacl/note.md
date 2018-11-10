@@ -1,1 +1,0 @@
-Download tweetnacl.js from [here](https://github.com/dchest/tweetnacl-js/releases). Copy "nacl-fast.min.js" to "tweetnacl.js" in this directory.
