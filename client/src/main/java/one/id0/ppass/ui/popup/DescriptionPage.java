@@ -1,10 +1,12 @@
 package one.id0.ppass.ui.popup;
 
 import java.io.IOException;
-import javafx.concurrent.Task;
+
+import javafx.beans.value.ChangeListener;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.stage.Stage;
+import javafx.scene.layout.AnchorPane;
 //import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
 import javafx.scene.control.Label;
@@ -24,40 +26,46 @@ public class DescriptionPage extends Page {
 	@FXML private JFXButton copyButton;
 	@FXML private Label accountTitle;
 	@FXML private JFXTextArea accountDescription;
+	@FXML private AnchorPane backgroundPane;
 	
 	// Class vars
 	private UserAccount account;
 	private PPassBackend backend;
+	private String descPrevious; // Previous description value
 	
-	public DescriptionPage(Stage stage, PPassBackend backend, UserAccount account) throws IOException {
+	public DescriptionPage(Stage stage, PPassBackend backend, UserAccount account, ChangeListener<String> listener) throws IOException {
 		// Init page and logger
 		super(stage, "DescriptionPage.fxml", "ParaPass - Viewing " + account.accountName.get());
 		
-		// Copy over account and backend to class variables
+		// Copy over account, backend, and listener to class variables
 		this.account = account;
 		this.backend = backend;
 		
 		// Initialize saving mechanism for accountDescription
-		accountDescription.focusedProperty().addListener((o, oldVal, newVal)->{
-			if (newVal) { // We just got focus. Don't do anything
-			} else { // We just lost focus. Save our new description to the backend.
-				// MainPage will update the account upon this window closing
-				// Create task to update and run it
-				byte[] currentSelectedAccountID = account.accountID;
-				String currentSelectedDescription = accountDescription.getText(); 
-				Task<Void> updateTask = new Task<Void>() {
-					public Void call() throws Exception {
-						backend.updateAccountCache(currentSelectedAccountID, true, currentSelectedDescription, -1);
-						return null;
-					}
-				};
-				new Thread(updateTask).start();
+		descPrevious = account.description.getValue();
+		accountDescription.focusedProperty().addListener((o, oldVal, newVal) -> {
+			// If we just lost focus and the account description has been changed, fire off a change to the listener
+			if (!newVal && !descPrevious.equals(accountDescription.getText())) {
+				listener.changed(accountDescription.textProperty(), descPrevious, accountDescription.getText());
+			}
+		});
+		
+		// Save the account description one last time on stage close (we might not lose focus here)
+		stage.setOnCloseRequest(e->{
+			// Check if our description has been changed one last time just in case, and if so, trigger the change listener
+			if (!descPrevious.equals(accountDescription.getText())) {
+				listener.changed(accountDescription.textProperty(), descPrevious, accountDescription.getText());
 			}
 		});
 		
 		// Initialize title and description
 		accountTitle.setText(account.accountName.getValue());
 		accountDescription.setText(account.description.getValue());
+		
+		// Allow background to request focus
+		backgroundPane.setOnMouseClicked(e->{
+			backgroundPane.requestFocus();
+		});
 		
 		// Show scene
 		stage.setTitle("ParaPass - Viewing " + account.accountName.get());

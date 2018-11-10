@@ -3,7 +3,7 @@ geth --networkid 99455 --nodiscover --maxpeers 0 --datadir ./mychain/ init genes
 geth --networkid 99455 --nodiscover --maxpeers 0 --rpc --datadir ./mychain/ account new
 
 Run:
-geth --unlock=7b78a14c7f26d127c802ccbec8d4ee8e22c5924f --networkid 99455 --nodiscover --maxpeers 0 --rpc --datadir ./mychain/ console
+geth --unlock=31eebe079d70ae4ac1dbd5146322a2f371edfa7e --networkid 99455 --nodiscover --maxpeers 0 --rpc --datadir ./mychain/ console
 
 Mine:
 > miner.start(1)

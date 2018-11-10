@@ -3,73 +3,59 @@ package one.id0.ppass.ui.main;
 import java.io.IOException;
 import java.util.ArrayList;
 
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-//import javafx.geometry.Pos;
-//import javafx.geometry.Insets;
-//import javafx.scene.Scene;
-//import javafx.scene.text.Text;
-//import javafx.scene.text.TextFlow;
-//import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
 import javafx.scene.layout.StackPane;
-import javafx.scene.layout.AnchorPane;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.control.SplitPane;
-import javafx.scene.Node;
-//import javafx.scene.control.Alert;
+import javafx.scene.layout.VBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.TreeItem;
-import javafx.scene.control.TreeTableColumn;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.stage.Stage;
 import javafx.application.Platform;
-import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.SortedList;
+import javafx.collections.transformation.FilteredList;
 import javafx.concurrent.Task;
 
-import com.jfoenix.controls.JFXButton;
-import com.jfoenix.controls.JFXRippler;
-import com.jfoenix.controls.JFXPopup;
 import com.jfoenix.controls.JFXTextField;
+import com.jfoenix.controls.JFXButton;
+import com.jfoenix.controls.JFXListCell;
 import com.jfoenix.controls.JFXListView;
-import com.jfoenix.controls.JFXTreeTableView;
-import com.jfoenix.controls.JFXTreeTableColumn;
-import com.jfoenix.controls.RecursiveTreeItem;
-import com.jfoenix.controls.cells.editors.TextFieldEditorBuilder;
-import com.jfoenix.controls.cells.editors.base.GenericEditableTreeTableCell;
-import com.jfoenix.controls.datamodels.treetable.RecursiveTreeObject;
 
 import one.id0.ppass.backend.PPassBackend;
 import one.id0.ppass.utils.UserAccount;
 import one.id0.ppass.utils.UserPassword;
 import one.id0.ppass.server.PPassServer;
+import one.id0.ppass.ui.HoverTooltip;
 import one.id0.ppass.ui.Page;
 import one.id0.ppass.ui.popup.DescriptionPage;
 import one.id0.ppass.ui.popup.PastPasswordPage;
 import one.id0.ppass.server.JSONServer;
 
-public class MainPage extends Page {	
+public class MainPage extends Page {
 	// Class variables
 	private PPassBackend backend;
 	private ObservableList<UserAccount> userAccounts;
-	private TreeItem<UserAccount> accountRoot;
+	private FilteredList<UserAccount> filteredAccounts;
+	private SortedList<UserAccount> sortedAccounts;
 	private PPassServer server;
 	
 	// FXML elements that we need to interact with
 	@FXML private StackPane everythingPane;
-	@FXML private AnchorPane backgroundPane;
+	@FXML private VBox backgroundPane;
 	@FXML private JFXTextField searchInput;
-	@FXML private JFXTreeTableView<UserAccount> searchTreeTable;
+	@FXML private JFXButton createNewAccountButton;
+	@FXML private JFXListView<UserAccount> resultsListView;
 
 	// Constructor
 	public MainPage(Stage stage, PPassBackend backend) throws IOException {
 		// Initialize page and logger
 		super(stage, "MainPage.fxml", "ParaPass");
 		backend.setLogger(logger);
+		
+		// Style icons in scene
+		scene.getStylesheets().add(getClass().getResource("/css/icons.css").toExternalForm());
 		
 		// Copy over backend
 		this.backend = backend;
@@ -81,8 +67,11 @@ public class MainPage extends Page {
 			backgroundPane.requestFocus();
 		});
 		
-		// Initialize searchTreeTable
-		initSearchTreeTable();
+		// Initialize resultsListView
+		initResultsListView();
+		
+		// Add tooltip for createNewAccountButton
+		new HoverTooltip("Create This Password", createNewAccountButton);
 		
 		// Show our new scene
 		super.enterStage();
@@ -92,47 +81,7 @@ public class MainPage extends Page {
 		server.init(backend, false, logger);
 	}
 	
-	/* ACCOUNT OPTIONS POPUP CREATOR AND ACTIONS */
-	// Shows the account options popup for an account at a controller node
-	public void showAccountOptionsPopup(Node control, UserAccount account) {
-		// Create account options popup actions (copy password, pin password, new password, past passwords)
-		JFXListView<Label> popupActions = new JFXListView<Label>();
-		Label copyPasswordButton = new Label("Copy password");
-		Label pinPasswordButton = new Label("Pin password");
-		Label newPasswordButton = new Label("New password");
-		if (account.pinned.getValue().equals("pinned")) {
-			pinPasswordButton.setText("Unpin password");
-		}
-		Label pastPasswordsButton = new Label("Past passwords");
-		Label accountPropertiesButton = new Label("Properties");
-		popupActions.getItems().setAll(copyPasswordButton, pinPasswordButton,
-				newPasswordButton, pastPasswordsButton, accountPropertiesButton);
-		
-		// Create wrappers for JFXListView
-		JFXPopup popup = new JFXPopup(popupActions);
-		// Set event handler for popup actions to run the selected function and close the popup
-		popupActions.setOnMouseClicked(e->{
-			Label selected = popupActions.getSelectionModel().getSelectedItem();
-			if (selected == copyPasswordButton) {
-				copyPassword(account);
-			} else if (selected == pinPasswordButton) {
-				togglePasswordPin(account);
-			} else if (selected == newPasswordButton) {
-				createNewPassword(account.accountName.getValue(), false);
-			} else if (selected == pastPasswordsButton) {
-				showPastPasswords(account);
-			} else if (selected == accountPropertiesButton) {
-				showAccountProperties(account);
-			} else {
-				logger.logErr("How is this even possible? You clicked a nonexistent button.");
-			}
-			popup.hide();
-		});
-		
-		// Show popup
-		popup.show(control);
-	}
-	
+	/* SEARCH RESULT ACTIONS */
 	// Copies a specified account's password
 	private void copyPassword(UserAccount account) {
 		try {
@@ -161,9 +110,9 @@ public class MainPage extends Page {
 				// Update search tree
 				if (addingAccount) {
 					try {
-						updateSearchTreeWithAccountAsync(accountToAdd);
+						updateUserAccountsAsync(accountToAdd);
 					} catch (Exception e) {
-						logger.log("Couldn't update search tree: " + e.getMessage());
+						logger.log("Exception when updating user accounts list: " + e.getMessage());
 					}
 				}
 			}
@@ -174,13 +123,9 @@ public class MainPage extends Page {
 	// Toggles a password's pin state
 	protected void togglePasswordPin(UserAccount account) {
 		try {
-			if (account.pinned.getValue().equals("")) {
-				backend.updateAccountCache(account.accountID, true, null, 1);
-				account.pinned.set("pinned");
-			} else {
-				backend.updateAccountCache(account.accountID, true, null, 0);
-				account.pinned.set("");
-			}
+			boolean newPinned = !account.pinned.getValue();
+			backend.updateAccountCache(account.accountID, true, null, newPinned ? 1:0);
+			account.pinned.set(newPinned);
 		} catch (Exception e) {
 			logger.log("Failed to toggle password pin: " + e.getMessage());
 		}
@@ -202,103 +147,146 @@ public class MainPage extends Page {
 	private void showAccountProperties(UserAccount account) {
 		try {
 			Stage popupStage = new Stage();
-			new DescriptionPage(popupStage, backend, account);
+			new DescriptionPage(popupStage, backend, account, (o, oldVal, newVal)->{ // Listener for when the description changes
+				// Create task to update the description to the new value (both in the backend and frontend) and run it
+				Task<Void> updateTask = new Task<Void>() {
+					public Void call() throws Exception {
+						backend.updateAccountCache(account.accountID, true, newVal, -1);
+						account.description.set(newVal);
+						Platform.runLater(() -> {
+							try {
+								updateUserAccountsAsync(account);
+							} catch (Exception e) {
+								logger.logErr("Exception when updating user accounts list: " + e.getMessage());
+							}
+						});
+						return null;
+					}
+				};
+				new Thread(updateTask).start();
+			});
 			popupStage.show();
 		} catch (Exception e) {
 			logger.logErr("Failed to show account properties: " + e.getMessage());
 		}
 	}
 	
-	/* TREETABLEVIEW FOR SEARCHING PASSWORDS INITIALIZATION UPDATING AND ACTIONS */
-	// Initializes searchTreeTable (the JFXTreeTable on the left)
-	private void initSearchTreeTable() {
-		// Initialize searchTreeTable columns
-		// Account name column
-		JFXTreeTableColumn<UserAccount, String> accountNameColumn = new JFXTreeTableColumn<UserAccount, String>("Name");
-		accountNameColumn.setCellValueFactory((TreeTableColumn.CellDataFeatures<UserAccount, String> param) -> {
-			if (param.getValue().getValue() == null) {
-				return new SimpleStringProperty("null");
-			}
-			return param.getValue().getValue().accountName;
-		});
-		accountNameColumn.setCellFactory((TreeTableColumn<UserAccount, String> param) ->
-        	new GenericEditableTreeTableCell<UserAccount, String>(new TextFieldEditorBuilder()));
-		// Timestamp column
-		JFXTreeTableColumn<UserAccount, String> timestampColumn = new JFXTreeTableColumn<UserAccount, String>("Last Accessed");
-		timestampColumn.setCellValueFactory((TreeTableColumn.CellDataFeatures<UserAccount, String> param) -> {
-			if (param.getValue().getValue() == null) {
-				return new SimpleStringProperty("Never");
-			}
-			return param.getValue().getValue().timestamp;
-		});
-		timestampColumn.setCellFactory((TreeTableColumn<UserAccount, String> param) ->
-        	new GenericEditableTreeTableCell<UserAccount, String>(new TextFieldEditorBuilder()));
-		// Pinned column
-		JFXTreeTableColumn<UserAccount, String> pinnedColumn = new JFXTreeTableColumn<UserAccount, String>("Pinned");
-		pinnedColumn.setCellValueFactory((TreeTableColumn.CellDataFeatures<UserAccount, String> param) -> {
-			if (param.getValue().getValue() == null) {
-				return new SimpleStringProperty("");
-			}
-			return param.getValue().getValue().pinned;
-		});
-		pinnedColumn.setCellFactory((TreeTableColumn<UserAccount, String> param) ->
-        	new GenericEditableTreeTableCell<UserAccount, String>(new TextFieldEditorBuilder()));
-		
-		// Initialize searchTreeTable content and listeners
+	/* INITIALIZATION UPDATING AND ACTIONS FOR LISTVIEW FOR SEARCHING PASSWORDS */
+	// Initializes resultsListView (the listView at the center of the page with all the accounts)
+	private void initResultsListView() {
+		// Initialize resultsListView content and listeners
 		try {
+			// Create observable list, filtered list, and sorted list for resultsListView to display
 			ArrayList<UserAccount> userAccountsArrayList = backend.getAllAccounts();
 			userAccounts = FXCollections.observableArrayList(userAccountsArrayList);
-			accountRoot = new RecursiveTreeItem<UserAccount>(userAccounts, RecursiveTreeObject::getChildren);
-			searchTreeTable.getColumns().setAll(accountNameColumn, timestampColumn, pinnedColumn);
-			searchInput.textProperty().addListener((o, oldVal, newVal) -> {
-				searchTreeTable.setPredicate(accProp -> {
-					final UserAccount account = accProp.getValue();
-					return account.accountName.toString().contains(newVal);
-				});
+			filteredAccounts = new FilteredList<UserAccount>(userAccounts, acc -> true);
+			sortedAccounts = new SortedList<UserAccount>(filteredAccounts, (acc1, acc2)->{
+				// Value pins the most, timestamps the next, then names the least.
+				// This will return any positive number if acc2 is first or any negative number if acc1 is first
+				// Check pin difference first
+				int pinDiff = 0;
+				if (acc1.pinned.getValue()) {
+					pinDiff -= 1;
+				}
+				if (acc2.pinned.getValue()) {
+					pinDiff += 1;
+				}
+				if (pinDiff != 0) {
+					return pinDiff;
+				}
+				// Check time difference next (note: we can compare these as strings because it's in the format YYYY-MM-DD)
+				int timeDiff = acc1.timestamp.getValue().compareTo(acc2.timestamp.getValue());
+				if (timeDiff != 0) {
+					return timeDiff;
+				}
+				// Check name difference last
+				int nameDiff = acc1.accountName.getValue().compareTo(acc2.accountName.getValue());
+				return nameDiff;
 			});
-			searchTreeTable.setRoot(accountRoot);
-			// Style searchTreeTable and add click event that changes value of currently
-			// selected account as well as UI elements about it
-	//		searchTreeTable.getStyleClass().add("dark");
-			searchTreeTable.getSelectionModel().selectedItemProperty().addListener((o, oldVal, newVal) -> {
-				if (newVal != null) {
-					// Get selected account
-					UserAccount account = newVal.getValue();
-					// Show account options popup
-					showAccountOptionsPopup(searchTreeTable, account);
-					// Update last accessed timestamp for this account
-					try {
-						backend.updateAccountCache(account.accountID, true, null, -1);
-					} catch (Exception e) {
-						logger.log("Failed to update last accessed timestamp: " + e.getMessage());
+			// Set search listener to change filter predicate and resort
+			searchInput.textProperty().addListener((o, oldVal, newVal) -> {
+				String filter = searchInput.getText();
+				if (filter == null || filter.length() == 0) {
+					filteredAccounts.setPredicate(acc -> true);
+				} else {
+					filteredAccounts.setPredicate(acc -> acc.accountName.getValue().contains(filter));
+				}
+			});
+			// Set resultsListView cell factory
+			resultsListView.setCellFactory(param -> new JFXListCell<UserAccount>() {
+				// Each cell stores the UserAccount it represents and a SearchEntry object to display it 
+				private UserAccount account;
+				private SearchEntry searchEntry;
+				
+				@Override
+				protected void updateItem(UserAccount account, boolean empty) {
+					super.updateItem(account, empty);
+					super.setText("");
+					// Create content
+					if (!empty) {
+						// If this cell is not empty, manipulate our new information and set our graphic to our searchEntry
+						if (searchEntry == null) {
+							// If a search entry hasn't been created yet, create it
+							this.account = account;
+							searchEntry = new SearchEntry(account, e->{
+								// When we get an event, determine the source. If it's a SearchEntryIcon, get its type and act accordingly
+								Object sourceObject = e.getSource();
+								if (sourceObject instanceof SearchEntryIcon) {
+									SearchEntryIcon source = (SearchEntryIcon)sourceObject;
+									switch (source.getType()) {
+										case PIN: togglePasswordPin(this.account); searchEntry.setPinnedStatus(this.account.pinned.getValue()); break;
+										case DESCRIPTION: showAccountProperties(this.account); break;
+										case HISTORY: showPastPasswords(this.account); break;
+										case NEW: createNewPassword(this.account.accountName.getValue(), false); break;
+										case COPY: copyPassword(this.account); break;
+									}
+								}
+							});
+						} else if (this.account != account) {
+							// Otherwise, if the account changed, update the search entry and the cell's UserAccount object
+							this.account = account;
+							searchEntry.updateAccount(account);
+						}
+						// Draw our entry
+						super.setGraphic(searchEntry);
+					} else {
+						// If this is now empty, set both account and searchEntry to null and make the ListCell blank if it isn't already
+						this.account = null;
+						this.searchEntry = null;
+						super.setGraphic(new Label(""));
 					}
 				}
 			});
+			// Set resultsListView data
+			resultsListView.setItems(sortedAccounts);
+			resultsListView.setFocusTraversable(false);
 		} catch (Exception e) {
 			logger.log("Non-Fatal error on generating account name table: " + e.getMessage()
 					+ ". No table will be added.");
+			throw new RuntimeException(e);
 			// Do nothing. Our accountNameColumn won't be populated or added.
 			// The user will still have a semi-functional UI
 		}
 	}
 	
-	// Updates searchTreeTable (the sidebar JFXTreeTable)
-	private void updateSearchTreeWithAccountAsync(String accountNameToAdd) throws Exception {
-		// Add our new UserAccount and regenerate root 
-		UserAccount userAccountToAdd = backend.getUserAccountObject(accountNameToAdd);
+	// Updates userAccounts for resultsList using an account name
+	private void updateUserAccountsAsync(String accountName) throws Exception {
+		updateUserAccountsAsync(backend.getUserAccountObject(accountName));
+	}
+	
+	// Updates userAccounts for resultsList using a UserAccount
+	private void updateUserAccountsAsync(UserAccount account) throws Exception {
 		// Add this child in the UI thread
 		Platform.runLater(new Runnable() {
 			public void run() {
-				// Loop through the items in accountRoot. If we are updating a past value, update it and return.
-				for (TreeItem<UserAccount> item : accountRoot.getChildren()) {
-					if (item.getValue().accountName.getValue().equals(accountNameToAdd)) {
-						item.setValue(userAccountToAdd);
-						return;
+				// Loop through the items in userAccounts, removing any old versions of this UserAccount.
+				for (int i=0; i<userAccounts.size(); i++) {
+					if (userAccounts.get(i).accountName.getValue().equals(account.accountName.getValue())) {
+						userAccounts.remove(i);
 					}
 				}
-				// This is a new value. Add to accountRoot.
-				userAccounts.add(userAccountToAdd);
-				// accountRoot.getChildren().add(new RecursiveTreeItem<UserAccount>(userAccountToAdd, RecursiveTreeObject::getChildren));
+				// Add the new UserAccount
+				userAccounts.add(account);
 			}
 		});
 	}

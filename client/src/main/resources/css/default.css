@@ -1,0 +1,39 @@
+/* Some dark theming for the most basic elements */
+.dark {
+	-fx-background-color: #282828;
+}
+
+.dark > .split-pane-divider {
+	-fx-background-color: #303033;
+}
+
+.darkInput {
+	-fx-text-inner-color: #444444;
+}
+
+/* Code with some tweaks from GitHub: https://github.com/jfoenixadmin/JFoenix/issues/411 */
+/* This changes the color of the ListView and ripplers to make it match the dark theme */
+.list-view {
+    -fx-background-color: #202020;
+}
+
+.list-view .list-cell:hover {
+    -fx-background-color: #333333;
+}
+
+.list-view .list-cell:selected {
+    -fx-background-color: #333333;
+}
+
+.list-view .list-cell {
+    -fx-background-color: #202020;
+    -fx-text-fill: white;
+}
+
+.list-view .label {
+    -fx-text-fill: white;
+}
+
+.jfx-rippler {
+    -jfx-rippler-fill: silver;
+}

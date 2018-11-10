@@ -1,6 +1,9 @@
 package one.id0.ppass.backend;
 
 import java.util.ArrayList;
+import java.util.Base64;
+
+import org.json.JSONObject;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -17,17 +20,23 @@ import one.id0.ppass.utils.UserPassword;
 public class CachedUser extends User {
 	// SQL table structures.
 
+	// This table stores user-specific information. It has 4 columns - the username of the user, the password of the
+	// user, and the complete contents of the ppass file in JSON.
+	// This is 100% optional and only used for "remember me". There will be at most 1 row, which is the current logged
+	// in user
+	private static final String usersTableStructure =
+			"(username TEXT, password TEXT, ppassJSON TEXT)";
 	// This table stores account-specific information. It has 4 columns - an 8-byte user ID hash, an 8-byte account
 	// ID hash, a variable-length description, a 64-bit last-accessed timestamp, and a 0/1 (boolean) integer with
 	// whether or not the account is pinned.
 	// Note that we can use 8-byte hashes because we expect each user to not have a ridiculous amount of passwords.
-	private final String accountsTableStructure =
+	private static final String accountsTableStructure =
 			"(uid INTEGER NOT NULL, aid INTEGER NOT NULL, desc BLOB, time INTEGER, pin INTEGER, UNIQUE (uid,aid))";
 	// This table stores past passwords. It has 4 columns - an 8-byte user ID hash, an 8-byte account hash, a 64=bit
 	// timestamp storing when the password was first seen (downloaded), a 64-bit hash of the encrypted password data,
 	// and a blob storing encrypted password data. Everything should ideally be unique, but checking uniqueness of the
 	// blob imposes extra overhead, so we're using the hash instead.
-	private final String passwordsTableStructure =
+	private static final String passwordsTableStructure =
 			"(uid INTEGER NOT NULL, aid INTEGER NOT NULL, time INTEGER NOT NULL, pwhash INTEGER NOT NULL, data BLOB, UNIQUE (uid,aid,pwhash))";
 	
 	// Database information
@@ -41,8 +50,47 @@ public class CachedUser extends User {
 		return hasher.getValue();
 	}
 	
-	// Constructor
-	public CachedUser(PPassNetwork ppass, String username, String masterpass, byte[] ppassFileContent, boolean createmode, Logger logger) throws Exception {
+	// Utilitys function to get ppassFileContent (the binary keys in a ppass file)
+	// and encrypted ethereum keys from a ppass file JSONObject
+	public static byte[] getPPassFileContent(JSONObject ppassFileObj) {
+		return Base64.getDecoder().decode(ppassFileObj.getString("enckeys"));
+	}
+	public static byte[] getPPassEncryptedEtherKeys(JSONObject ppassFileObj) {
+		return Base64.getDecoder().decode(ppassFileObj.getString("enceckeypair"));
+	}
+	
+	// Autologin utility function to get a ResultSet for the currently remembered user
+	// Throws an exception if there is no user currently remembered
+	protected static ResultSet checkAutoLogin() throws Exception {
+		// Attempt to load user from cache
+		Connection connection = DriverManager.getConnection("jdbc:sqlite:PPassCache.db");
+		Statement queryStatement = connection.createStatement();
+		ResultSet rs = queryStatement.executeQuery("SELECT * FROM users");
+		// Check if user is loaded
+		if (rs.next()) {
+			return rs;
+		} else {
+			throw new Exception("Could not log in automatically");
+		}
+	}
+	
+	// Autologin Constructor chain function #1. This takes in a PPassNetwork and a logger
+	// and runs checkAutoLogin to get a ResultSet to pass to the next function on the chain
+	public CachedUser(PPassNetwork ppass, Logger logger) throws Exception {
+		this(ppass, checkAutoLogin(), logger);
+	}
+	
+	// Autologin Constructor chain function #2. This takes in a ResultSet alonger with a PPassNetwork and Logger
+	// and passes its data to the actual constructor. Do not execute this constructor!
+	public CachedUser(PPassNetwork ppass, ResultSet rs, Logger logger) throws Exception {
+		this(ppass, rs.getString("username"), rs.getString("password"), getPPassFileContent(new JSONObject(rs.getString("ppassJSON"))),
+				false, null, logger); // We are already remembered, no need to remember again
+	}
+	
+	// Constructor. Takes in a PPassNetwork instance, a username, a password, the binary keys stored in a ppass file,
+	// whether or not to create this user on the network, a string with the complete JSON dump of the ppass file if
+	// "remember me" mode is on or null if it isn't, and a logger instance.
+	public CachedUser(PPassNetwork ppass, String username, String masterpass, byte[] ppassFileContent, boolean createmode, String ppassFileJSON, Logger logger) throws Exception {
 		// Initialize user
 		super(ppass, username, masterpass, ppassFileContent, createmode, logger);
 		// Initialize connection and create tables if necessary
@@ -51,8 +99,17 @@ public class CachedUser extends User {
 		Statement createStatement = connection.createStatement();
 		createStatement.executeUpdate("CREATE TABLE IF NOT EXISTS accounts " + accountsTableStructure);
 		createStatement.executeUpdate("CREATE TABLE IF NOT EXISTS passwords " + passwordsTableStructure);
+		createStatement.executeUpdate("CREATE TABLE IF NOT EXISTS users " + usersTableStructure);
 		// Create UID hash and copy over user
 		uidhash = runCRC(super.getUserHash());
+		// If remember is on, add this user to the users table
+		if (ppassFileJSON != null) {
+			PreparedStatement rememberStatement = connection.prepareStatement("INSERT INTO users (username,password,ppassJSON) VALUES (?,?,?)");
+			rememberStatement.setString(1, username);
+			rememberStatement.setString(2, masterpass);
+			rememberStatement.setString(3, ppassFileJSON);
+			rememberStatement.executeUpdate();
+		}
 	}
 	
 	/**** OVERLOADED USER FUNCTIONS ****/
@@ -193,5 +250,11 @@ public class CachedUser extends User {
 		}
 		// Return results
 		return results;
+	}
+	
+	/**** REMEMBER ME FUNCTIONS ****/
+	public void unrememberMe() throws Exception {
+		Statement deleteStatement = connection.createStatement();
+		deleteStatement.executeUpdate("DELETE FROM users");
 	}
 }

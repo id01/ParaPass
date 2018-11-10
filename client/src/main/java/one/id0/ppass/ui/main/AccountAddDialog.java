@@ -130,7 +130,13 @@ public class AccountAddDialog {
 						Platform.runLater(new Runnable() {
 							public void run() {
 								System.out.println(toLog);
-								loadingText.setText(toLog);
+								// If this is a success, remove the spinner and say that the password was created
+								if (toLog.startsWith("Success! Transaction hash: ")) {
+									loadingText.setText("Password Created!");
+									loadingBox.getChildren().remove(spinner);
+								} else { // Otherwise, just log it
+									loadingText.setText(toLog);
+								}
 							}
 						});
 					}

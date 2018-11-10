@@ -47,11 +47,9 @@ public class JSONServer extends NanoHTTPD implements PPassServer {
 			// Create a new key and write it to ServerKey.
 			logger.log("Creating new server key...");
 			PrintWriter keyWriter = new PrintWriter(new File(SERVERKEYFILE));
-			// This is very hackish, but works. Initialize a fake Crypto instance, generate a bunch of random stuff, and hash it
-			Crypto fakeCrypto = new Crypto(new byte[64]);
-			String randomStuff = fakeCrypto.generatePassword("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/+".getBytes(), 128);
-			randomStuff += fakeCrypto.generatePassword("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/+".getBytes(), 128);
-			byte[] key = fakeCrypto.getGenericHash(randomStuff.getBytes(), 64);
+			// Initialize a fake Crypto instance and get 64 random bytes as the server key
+			Crypto fakeCrypto = new Crypto(null);
+			byte[] key = fakeCrypto.generateRandomBytes(64);
 			// Now that we have our key, write it to the file and create our real Crypto instance
 			serverCrypto = new Crypto(key);
 			keyWriter.write(Base64.getEncoder().encodeToString(key));

@@ -34,7 +34,7 @@ public class User {
 				throw new Exception("User already exists!");
 			}
 			TransactionReceipt tx_receipt = ppass.addUser(userhash, masterkeyhash).send();
-			logger.log("Success! Tranaction hash: " + tx_receipt.getTransactionHash());
+			logger.log("Success! Transaction hash: " + tx_receipt.getTransactionHash());
 		} else {
 			if (ppass.checkUserFree(userhash).send()) {
 				throw new Exception("User doesn't exist!");
@@ -60,7 +60,7 @@ public class User {
 		// Attempt to create user account and then check login status
 		logger.log("Attempting to put password into blockchain...");
 		TransactionReceipt tx_receipt = ppass.putPassword(userhash, accounthash, ciphertext).send();
-		logger.log("Success! Tranaction hash: " + tx_receipt.getTransactionHash());
+		logger.log("Success! Transaction hash: " + tx_receipt.getTransactionHash());
 		// Copy ciphertext to ctout if it isn't null
 		if (ctout != null) {
 			System.arraycopy(ciphertext, 0, ctout, 0, ciphertext.length);

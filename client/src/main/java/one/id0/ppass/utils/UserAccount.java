@@ -1,6 +1,8 @@
 package one.id0.ppass.utils;
 
 import javafx.beans.property.StringProperty;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
 
 import java.time.Instant;
@@ -14,14 +16,13 @@ public class UserAccount extends RecursiveTreeObject<UserAccount> {
 	// Final objects
 	public final StringProperty neverstr = new SimpleStringProperty("Never");
 	public final StringProperty emptystr = new SimpleStringProperty("");
-	public final StringProperty pinnedstr = new SimpleStringProperty("pinned");
 	
 	// Properties
 	public byte[] accountID;
 	public StringProperty accountName;
 	public StringProperty description;
 	public StringProperty timestamp;
-	public StringProperty pinned;
+	public BooleanProperty pinned;
 	
 	// Constructor that takes less arguments
 	public UserAccount(byte[] accountID, String accountName) {
@@ -29,7 +30,7 @@ public class UserAccount extends RecursiveTreeObject<UserAccount> {
 		this.accountName = new SimpleStringProperty(accountName);
 		this.description = emptystr;
 		this.timestamp = neverstr;
-		this.pinned = emptystr;
+		this.pinned = new SimpleBooleanProperty(false);
 	}
 	
 	// Constructor that initializes everything
@@ -50,10 +51,6 @@ public class UserAccount extends RecursiveTreeObject<UserAccount> {
 			this.timestamp = neverstr;
 		}
 		// Initialize pinned state.
-		if (pinned) {
-			this.pinned = pinnedstr;
-		} else {
-			this.pinned = emptystr;
-		}
+		this.pinned = new SimpleBooleanProperty(pinned);
 	}
 }

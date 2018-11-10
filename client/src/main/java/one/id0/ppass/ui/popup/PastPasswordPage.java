@@ -31,9 +31,9 @@ public class PastPasswordPage extends Page {
 	// FXML elements
 	@FXML private VBox containerBox;
 	@FXML private JFXButton copyButton;
+	@FXML private JFXTreeTableView<UserPassword> pastPasswordTable;
 	
 	// Class variables
-	private JFXTreeTableView<UserPassword> pastPasswordTable;
 	private TreeItem<UserPassword> passwordsRoot;
 	private UserPassword selectedPassword;
 	
@@ -77,9 +77,8 @@ public class PastPasswordPage extends Page {
 		try {
 			ObservableList<UserPassword> passwordObservable = FXCollections.observableArrayList(passwords);
 			passwordsRoot = new RecursiveTreeItem<UserPassword>(passwordObservable, RecursiveTreeObject::getChildren);
-			pastPasswordTable = new JFXTreeTableView<UserPassword>(passwordsRoot);
+			pastPasswordTable.setRoot(passwordsRoot);
 			pastPasswordTable.getColumns().setAll(accountNameColumn, timestampColumn, passwordColumn);
-			pastPasswordTable.setShowRoot(false);
 			containerBox.getChildren().add(0, pastPasswordTable);
 			// Style searchTreeTable and add click event that changes value of currently
 			// selected account as well as UI elements about it

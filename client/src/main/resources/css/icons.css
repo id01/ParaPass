@@ -1,0 +1,22 @@
+/* Small icons are unimportant and should be less opaque when not moused over */
+.small-icon {
+	-fx-opacity: 0.4;
+	-fx-background-color: black;
+}
+.small-icon:hover {
+	-fx-opacity: 1;
+}
+
+/* Light, normal, and reverse opacity medium icons */
+.medium-icon-light {
+	-fx-opacity: 0.4;
+}
+.medium-icon-light:hover, .medium-icon-reverse:hover {
+	-fx-opacity: 0.7;
+}
+.medium-icon {
+	-fx-opacity: 0.9;
+}
+.medium-icon-reverse, .medium-icon:hover {
+	-fx-opacity: 1;
+}

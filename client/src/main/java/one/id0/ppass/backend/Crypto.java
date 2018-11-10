@@ -116,6 +116,13 @@ public class Crypto {
 		return decryptMiscData(misckey, ciphertext);
 	}
 	
+	// Function to generate a random byteArray of the specified length
+	public byte[] generateRandomBytes(int length) {
+		byte[] bytes = new byte[length];
+		generateRandomBytes(bytes);
+		return bytes;
+	}
+	
 	// Function to encrypt an ECKeyPair object
 	public byte[] encryptEtherKeys(ECKeyPair keyPair) {
 		// Get public and private keys as byte arrays

@@ -1,19 +1,16 @@
 package one.id0.ppass.ui;
 
-import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.control.Tooltip;
-import javafx.stage.Stage;
 
 public class HoverTooltip extends Tooltip {
-	public HoverTooltip(String text, Node parentNode, Stage stage) {
+	boolean mouseOverTooltip;
+	
+	public HoverTooltip(String text, Node parentNode) {
 		super(text);
 		
 		parentNode.setOnMouseEntered(e->{
-			Bounds parentBounds = parentNode.localToScene(parentNode.getBoundsInLocal());
-			show(parentNode,
-					stage.getX()+parentBounds.getMinX()+parentBounds.getWidth()/2-getWidth()/2,
-					stage.getY()+parentBounds.getMinY());
+			show(parentNode, e.getScreenX()-getWidth()/2, e.getScreenY()-2-getHeight());
 		});
 		parentNode.setOnMouseExited(e->{
 			hide();

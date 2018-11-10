@@ -15,7 +15,10 @@
    version="1.1"
    id="svg1388"
    inkscape:version="0.92.2 2405546, 2018-03-11"
-   sodipodi:docname="info.svg">
+   sodipodi:docname="redo.svg"
+   inkscape:export-filename="/home/illudion/Desktop/Programming/password_eth/client/icons/redo.png"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96">
   <defs
      id="defs1382" />
   <sodipodi:namedview
@@ -26,7 +29,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="3.3367717"
-     inkscape:cx="76.743512"
+     inkscape:cx="27.29452"
      inkscape:cy="120.70031"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
@@ -45,7 +48,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -54,28 +57,35 @@
      inkscape:groupmode="layer"
      id="layer1"
      transform="translate(0,-233)">
-    <circle
-       style="opacity:1;vector-effect:none;fill:none;fill-opacity:1;stroke:#001642;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+    <path
+       style="opacity:1;vector-effect:none;fill:none;fill-opacity:1;stroke:#a6bcde;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
        id="path835"
-       cx="32.232689"
-       cy="265.00522"
-       r="25.57206"
        inkscape:export-xdpi="96"
-       inkscape:export-ydpi="96" />
+       inkscape:export-ydpi="96"
+       sodipodi:type="arc"
+       sodipodi:cx="32.232689"
+       sodipodi:cy="265.00522"
+       sodipodi:rx="20"
+       sodipodi:ry="20"
+       sodipodi:start="0"
+       sodipodi:end="4.7081755"
+       d="M 52.232689,265.00522 A 20,20 0 0 1 32.260779,285.0052 20,20 0 0 1 12.232768,265.0614 20,20 0 0 1 32.14842,245.0054"
+       sodipodi:open="true" />
     <path
-       style="fill:none;stroke:#001642;stroke-width:9.05873299;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
-       d="M 32.232689,285.11734 V 262.17809"
-       id="path837"
-       inkscape:connector-curvature="0"
-       inkscape:export-xdpi="96"
-       inkscape:export-ydpi="96" />
-    <path
-       style="fill:none;stroke:#001642;stroke-width:9.05873299;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
-       d="m 32.232685,252.43557 8e-6,-0.88569"
-       id="path845"
-       inkscape:connector-curvature="0"
-       sodipodi:nodetypes="cc"
-       inkscape:export-xdpi="96"
-       inkscape:export-ydpi="96" />
+       sodipodi:type="star"
+       style="opacity:1;vector-effect:none;fill:none;fill-opacity:1;stroke:#a6bcde;stroke-width:5;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+       id="path4571"
+       sodipodi:sides="3"
+       sodipodi:cx="36.474874"
+       sodipodi:cy="245.22152"
+       sodipodi:r1="4.4404197"
+       sodipodi:r2="2.2202098"
+       sodipodi:arg1="0"
+       sodipodi:arg2="1.0471976"
+       inkscape:flatsided="true"
+       inkscape:rounded="0"
+       inkscape:randomized="0"
+       d="m 40.915292,245.22153 -6.660629,3.84551 v -7.69103 z"
+       inkscape:transform-center-x="-1.1101045" />
   </g>
 </svg>

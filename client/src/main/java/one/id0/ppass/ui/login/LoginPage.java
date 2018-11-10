@@ -12,6 +12,7 @@ import javafx.geometry.Insets;
 //import javafx.scene.Scene;
 import javafx.scene.paint.Color;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.scene.layout.GridPane;
@@ -20,6 +21,8 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.stage.Stage;
 import javafx.stage.FileChooser;
 import javafx.concurrent.Task;
@@ -54,13 +57,15 @@ public class LoginPage extends Page {
 	private String keystorePassword;
 	private HBox loadingBox;
 	private TextFlow loadingTextFlow;
-	private Text loadingText;
+	@FXML private Text loadingText;
 	
 	// FXML elements that we need to interact with
 	// Wrapper panes
 	@FXML private StackPane everythingPane;
 	@FXML private Pane loginFormPane;
 	@FXML private GridPane loginFormGridPane;
+	// Logo image
+	@FXML private ImageView logoImage;
 	// Username and password inputs
 	@FXML private JFXTextField usernameInput;
 	@FXML private JFXPasswordField passwordInput;
@@ -86,10 +91,12 @@ public class LoginPage extends Page {
 		// Initialize page and logger
 		super(stage, "LoginPage.fxml", "ParaPass - Login");
 		
+		// Load logo
+		logoImage.setImage(new Image("/icons/ParaPass.png"));
+		
 		// Construct loading box
 		JFXSpinner loadingSpinner = new JFXSpinner();
-		loadingText = new Text("Please wait...");
-		loadingTextFlow = new TextFlow(loadingText);
+		loadingTextFlow = new TextFlow();
 		loadingTextFlow.setPrefWidth(200.0);
 		loadingTextFlow.setMaxWidth(200.0);
 		HBox.setMargin(loadingTextFlow, new Insets(32,32,32,32));
@@ -107,53 +114,45 @@ public class LoginPage extends Page {
 		// Initialize logger. This is SO UGLY!!! But it works :D
 		Logger.Handler onLog = new Logger.Handler() {
 			public Runnable getRunnable(String toLog) {
-				return new Runnable() {
-					public void run() {
-						Platform.runLater(new Runnable() {
-							public void run() {
-								// Update UI with log string
-								System.out.println(toLog);
-								loadingText.setText(toLog);
-							}
-						});
-					}
+				return ()->{
+					Platform.runLater(()->{
+						// Update UI with log string
+						System.out.println(toLog);
+						loadingText.setText(toLog);
+					});
 				};
 			}
 		};
 		Logger.Handler onErr = new Logger.Handler() {
 			public Runnable getRunnable(String toLog) {
-				return new Runnable() {
-					public void run() {
-						Platform.runLater(new Runnable() {
-							public void run() {
-								// Error! Remove loading circle and allow the user to escape
-								System.out.println(toLog);
-								loadingText.setText(toLog);
-								loadingBox.getChildren().clear();
-								JFXButton backButton = new JFXButton("Return to Login");
-								backButton.setTextFill(Color.web(thatGrayShade));
-								backButton.setOnAction(e->{
-									try {
-										new LoginPage(stage);
-									} catch (IOException ee) {
-										System.out.println("Unexpected exception: " + ee.getMessage() +
-												"\nStack trace: \n" + ee.getStackTrace());
-									}
-								});
-								loadingBox.getChildren().setAll(loadingTextFlow, backButton);
+				return ()->{
+					Platform.runLater(()->{
+						// Error! Remove loading circle and allow the user to escape
+						System.out.println(toLog);
+						loadingText.setText(toLog);
+						loadingBox.getChildren().clear();
+						JFXButton backButton = new JFXButton("Return to Login");
+						backButton.setTextFill(Color.web(thatGrayShade));
+						backButton.setOnAction(e->{
+							try {
+								new LoginPage(stage);
+							} catch (IOException ee) {
+								System.out.println("Unexpected exception: " + ee.getMessage() +
+										"\nStack trace: \n" + ee.getStackTrace());
 							}
 						});
-					}
+						loadingBox.getChildren().setAll(loadingTextFlow, backButton);
+					});
 				};
 			}
 		};
 		logger = new Logger(onLog, onErr);
 
 		// Create tooltips
-		new HoverTooltip("Select your account's PPass file", selectPPassButton, stage);
-		new HoverTooltip("Generate a PPass file", createPPassButton, stage);
-		new HoverTooltip("Select your ethereum wallet's keystore file", selectKeystoreButton, stage);
-		new HoverTooltip("NOT SECURE - Logs you in automatically", rememberMeCheckbox, stage);
+		new HoverTooltip("Select your account's PPass file", selectPPassButton);
+		new HoverTooltip("Generate a PPass file", createPPassButton);
+		new HoverTooltip("Select your ethereum wallet's keystore file", selectKeystoreButton);
+		new HoverTooltip("NOT SECURE - Logs you in automatically", rememberMeCheckbox);
 		
 		// Set current mode to login and hide the keystore file selection pane
 		currentMode = FormMode.LOGIN;
@@ -161,6 +160,41 @@ public class LoginPage extends Page {
 		
 		// Take the stage
 		super.enterStage();
+		
+		// Try logging in automatically
+		Platform.runLater(() -> {
+			try {
+				tryAutoLogin();
+			} catch (Exception e) {
+				System.out.println(e.getMessage());
+			}
+		});
+	}
+	
+	// AUTOLOGIN FUNCTION
+	// This function attempts to log in automatically
+	public void tryAutoLogin() throws Exception {
+		logger.log("Trying autologin...");
+		Task<Void> enterTask = new Task<Void>() {
+			@Override
+			public Void call() throws Exception {
+				backend = new PPassBackend(ppassAddress, logger);
+				return null;
+			}
+		};
+		// If this failed, log the error (using log, not logErr, as it doesn't show the back button).
+		// If it succeeds, move onto main page
+		enterTask.setOnFailed(e->{
+			logger.log("Autologin failed: " + enterTask.getException().getMessage());
+		});
+		enterTask.setOnSucceeded(e->{
+			try {
+				new MainPage(stage, backend);
+			} catch (IOException ee) {
+				logger.log("Autologin failed: " + ee.getMessage());
+			}
+		});
+		new Thread(enterTask).start();
 	}
 	
 	// LOGIN/CREATE MODE FUNCTIONS
@@ -303,9 +337,12 @@ public class LoginPage extends Page {
 	// SUBMIT EVENT FUNCTION
 	// Function that handles a login, create, or create PPass event
 	@FXML protected void handleLogin(ActionEvent event) {
-		// Replace login form with loading text
+		// Replace login form with loading text and add loading text to it
 		loginFormPane.getChildren().clear();
 		loginFormPane.getChildren().add(loadingBox);
+		loadingTextFlow.getChildren().add(loadingText);
+		loadingText.setText("Please wait...");
+		loadingText.setFont(Font.font(13));
 		// Set our task according to the type of event that is happening
 		Task<Void> enterTask;
 		if (currentMode == FormMode.PPASS) { // If this is a create PPass file event
@@ -346,8 +383,8 @@ public class LoginPage extends Page {
 			enterTask = new Task<Void>() {
 				@Override
 				public Void call() throws Exception {
-					backend = new PPassBackend(usernameInput.getText(), passwordInput.getText(),
-							ppassFilePath, ppassAddress, currentMode == FormMode.CREATE, logger);
+					backend = new PPassBackend(usernameInput.getText(), passwordInput.getText(), ppassFilePath,
+							ppassAddress, currentMode == FormMode.CREATE, rememberMeCheckbox.isSelected(), logger);
 					return null;
 				}
 			};

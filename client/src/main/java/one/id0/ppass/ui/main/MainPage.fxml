@@ -1,25 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import com.jfoenix.controls.JFXButton?>
+<?import com.jfoenix.controls.JFXListView?>
 <?import com.jfoenix.controls.JFXTextField?>
-<?import com.jfoenix.controls.JFXTreeTableView?>
+<?import java.net.URL?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
 
 <StackPane fx:id="everythingPane" xmlns="http://javafx.com/javafx/8.0.141" xmlns:fx="http://javafx.com/fxml/1">
    <children>
-      <AnchorPane fx:id="backgroundPane" prefHeight="540.0" prefWidth="848.0" styleClass="dark" stylesheets="@../css/default.css">
+      <AnchorPane prefHeight="640.0" prefWidth="1140.0">
          <children>
-            <BorderPane layoutX="20.0" layoutY="14.0" prefHeight="25.0" prefWidth="806.0">
-               <center>
-                  <JFXTextField fx:id="searchInput" promptText="Search..." styleClass="darkInput" />
-               </center>
-               <right>
-                  <JFXButton onAction="#createNewAccount" styleClass="darkInput" text="+" textFill="#5b5b5b" BorderPane.alignment="CENTER" />
-               </right>
-            </BorderPane>
-            <JFXTreeTableView fx:id="searchTreeTable" layoutX="20.0" layoutY="58.0" prefHeight="468.0" prefWidth="806.0" showRoot="false" />
+            <VBox fx:id="backgroundPane" spacing="8.0" styleClass="dark" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+               <children>
+                  <BorderPane prefHeight="53.0" prefWidth="600.0">
+                     <center>
+                        <JFXTextField fx:id="searchInput" promptText="Search..." styleClass="darkInput" />
+                     </center>
+                     <right>
+                        <JFXButton fx:id="createNewAccountButton" onAction="#createNewAccount" styleClass="darkInput" text="+" textFill="#5b5b5b" BorderPane.alignment="CENTER" />
+                     </right>
+                  </BorderPane>
+                  <JFXListView fx:id="resultsListView" prefHeight="999999.0" styleClass="dark" />
+               </children>
+               <stylesheets>
+                  <URL value="@../../../../../../resources/css/icons.css" />
+                  <URL value="@../../../../../../resources/css/default.css" />
+               </stylesheets>
+               <padding>
+                  <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+               </padding>
+            </VBox>
          </children>
       </AnchorPane>
    </children>

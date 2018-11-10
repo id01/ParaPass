@@ -4,10 +4,12 @@ import java.util.Base64;
 import java.util.Scanner;
 import java.util.ArrayList;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.math.BigInteger;
+import java.sql.ResultSet;
 
 import org.web3j.crypto.ECKeyPair;
 import org.web3j.crypto.Credentials;
@@ -33,7 +35,6 @@ public class PPassBackend {
 	final static int pollInterval = 2000;
 	final static int pollCount = 1000;
 	final static String loginTempFileName = "/tmp/PPassLogin.tmp";
-	final static byte[] base64Digits = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/".getBytes();
 	public final static int ppassFileVersion = 1;
 
 	// Class variables
@@ -46,11 +47,9 @@ public class PPassBackend {
 	
 	// Generates a PPass file. Returns the contents of the generated PPass file in the form of a string.
 	public static String generatePPassFile(String username, String password, String keystoreFile, String keystorePassword) throws Exception {
-		// Generate encrypted content bytes using a temporary Crypto (we can do this because we're using the one time pad)
+		// Generate encrypted content bytes as random bytes using a temporary Crypto (we can do this because we're using the one time pad)
 		Crypto randgenCrypto = new Crypto(null);
-		byte[] randomBytes = Base64.getDecoder().decode(randgenCrypto.generatePassword(base64Digits, 172)); // This should generate 129 bytes. We'll use the first 128.
-		byte[] encryptedContentBytes = new byte[128];
-		System.arraycopy(randomBytes, 0, encryptedContentBytes, 0, 128);
+		byte[] encryptedContentBytes = randgenCrypto.generateRandomBytes(128);
 		
 		// Create an actual Crypto object, get ECKeyPair from keystore file and encrypt it
 		Crypto crypto = new Crypto(username, password, ppassFileVersion, encryptedContentBytes);
@@ -66,23 +65,43 @@ public class PPassBackend {
 		String ppassFileContent = jsonEncoder.toString();
 		return ppassFileContent;
 	}
+	
+	// Utility function that reads a file
+	public static String getFileContent(File file) throws FileNotFoundException {
+		Scanner scanner = new Scanner(file);
+		String content = scanner.nextLine();
+		scanner.close();
+		return content;
+	}
+	
+	// Autologin constructor chain function #1. Logs in using only the address of the PPassNetwork.
+	public PPassBackend(String address, Logger logger) throws Exception {
+		this(CachedUser.checkAutoLogin(), address, logger);
+	}
+	
+	// Autologin constructor chain function #2.
+	public PPassBackend(ResultSet rs, String address, Logger logger) throws Exception {
+		this(rs.getString("username"), rs.getString("password"), new JSONObject(rs.getString("ppassJSON")), address, false, false, logger);
+	}
+	
+	// Easier-to-call constructor that takes the name of a ppass file instead of a JSON Object
+	public PPassBackend(String username, String password, String ppassFile, String address, boolean createUser, boolean remember, Logger logger) throws Exception {
+		this(username, password, new JSONObject(getFileContent(new File(ppassFile))), address, createUser, remember, logger);
+	}
 
 	// Constructor. Connects to or creates a PPassNetwork address, and also prepares other backends
-	// Takes in the username of the user, the password for the ppass file, the path of the ppass file,
+	// Takes in the username of the user, the password for the ppass file, the contents of the ppass file as a JSON object,
 	// the address of the ppass network (or NULL if creating one), whether to create a new user on the PPassNetwork,
 	// and a logger object for output.
-	public PPassBackend(String username, String password, String ppassFile, String address, boolean createUser, Logger logger) throws Exception {
+	public PPassBackend(String username, String password, JSONObject ppassFileObj, String address, boolean createUser, boolean remember, Logger logger) throws Exception {
 		// Copy over logger
 		this.logger = logger;
 		// Set user to null for now
 		user = null;
 		// Parse PPass file
-		Scanner ppassFileScanner = new Scanner(new File(ppassFile));
-		JSONObject ppassFileObj = new JSONObject(ppassFileScanner.nextLine());
 		int ppassFileVersion = ppassFileObj.getInt("version");
-		byte[] ppassFileContent = Base64.getDecoder().decode(ppassFileObj.getString("enckeys"));
-		byte[] encryptedKeyPair = Base64.getDecoder().decode(ppassFileObj.getString("enceckeypair"));
-		ppassFileScanner.close();
+		byte[] ppassFileContent = CachedUser.getPPassFileContent(ppassFileObj);
+		byte[] encryptedKeyPair = CachedUser.getPPassEncryptedEtherKeys(ppassFileObj);
 		// Create Crypto object
 		Crypto crypto = new Crypto(username, password, ppassFileVersion, ppassFileContent);
 		// Set gas price and max gas
@@ -115,8 +134,12 @@ public class PPassBackend {
 			throw new IllegalStateException("Version mismatch!");
 		}
 		logger.log("Connected");
-		// Log in as user or create user
-		user = new CachedUser(ppass, username, password, ppassFileContent, createUser, logger);
+		// Log in as user or create user with or without remembering
+		if (remember) {
+			user = new CachedUser(ppass, username, password, ppassFileContent, createUser, ppassFileObj.toString(), logger);
+		} else {
+			user = new CachedUser(ppass, username, password, ppassFileContent, createUser, null, logger);
+		}
 	}
 	
 	/**** Web3j wrappers ****/
@@ -279,9 +302,9 @@ public class PPassBackend {
 					System.out.println("Done!");
 					System.exit(0);
 				} else if (args[4].equals("--genesis")) { // This option creates a new PPassNetwork on the blockchain
-					self = new PPassBackend(args[2], password, args[3], null, args[1].equals("create"), logger);
+					self = new PPassBackend(args[2], password, args[3], null, args[1].equals("create"), false, logger);
 				} else {
-					self = new PPassBackend(args[2], password, args[3], args[4], args[1].equals("create"), logger);
+					self = new PPassBackend(args[2], password, args[3], args[4], args[1].equals("create"), false, logger);
 				}
 			} else {
 				System.out.println("Usage: ./run [login|create] [username] [ppassFile] [contract address]\n" +
