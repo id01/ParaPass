@@ -6,7 +6,6 @@ import java.util.Base64;
 import org.json.JSONObject;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -19,7 +18,6 @@ import one.id0.ppass.utils.UserPassword;
 
 public class CachedUser extends User {
 	// SQL table structures.
-
 	// This table stores user-specific information. It has 4 columns - the username of the user, the password of the
 	// user, and the complete contents of the ppass file in JSON.
 	// This is 100% optional and only used for "remember me". There will be at most 1 row, which is the current logged
@@ -59,12 +57,19 @@ public class CachedUser extends User {
 		return Base64.getDecoder().decode(ppassFileObj.getString("enceckeypair"));
 	}
 	
+	// Utility function to initialize tables
+	public static void initTables(Connection conn) throws SQLException {
+		Statement createStatement = conn.createStatement();
+		createStatement.executeUpdate("CREATE TABLE IF NOT EXISTS accounts " + accountsTableStructure);
+		createStatement.executeUpdate("CREATE TABLE IF NOT EXISTS passwords " + passwordsTableStructure);
+		createStatement.executeUpdate("CREATE TABLE IF NOT EXISTS users " + usersTableStructure);
+	}
+	
 	// Autologin utility function to get a ResultSet for the currently remembered user
 	// Throws an exception if there is no user currently remembered
-	protected static ResultSet checkAutoLogin() throws Exception {
+	protected static ResultSet checkAutoLogin(Connection conn) throws Exception {
 		// Attempt to load user from cache
-		Connection connection = DriverManager.getConnection("jdbc:sqlite:PPassCache.db");
-		Statement queryStatement = connection.createStatement();
+		Statement queryStatement = conn.createStatement();
 		ResultSet rs = queryStatement.executeQuery("SELECT * FROM users");
 		// Check if user is loaded
 		if (rs.next()) {
@@ -74,32 +79,28 @@ public class CachedUser extends User {
 		}
 	}
 	
-	// Autologin Constructor chain function #1. This takes in a PPassNetwork and a logger
+	// Autologin Constructor chain function #1. This takes in a PPassNetwork, a db connection, and a logger
 	// and runs checkAutoLogin to get a ResultSet to pass to the next function on the chain
-	public CachedUser(PPassNetwork ppass, Logger logger) throws Exception {
-		this(ppass, checkAutoLogin(), logger);
+	public CachedUser(PPassNetwork ppass, Connection conn, Logger logger) throws Exception {
+		this(ppass, checkAutoLogin(conn), conn, logger);
 	}
 	
-	// Autologin Constructor chain function #2. This takes in a ResultSet alonger with a PPassNetwork and Logger
+	// Autologin Constructor chain function #2. This takes in a ResultSet along with a PPassNetwork, db connetion, and Logger
 	// and passes its data to the actual constructor. Do not execute this constructor!
-	public CachedUser(PPassNetwork ppass, ResultSet rs, Logger logger) throws Exception {
+	public CachedUser(PPassNetwork ppass, ResultSet rs, Connection conn, Logger logger) throws Exception {
 		this(ppass, rs.getString("username"), rs.getString("password"), getPPassFileContent(new JSONObject(rs.getString("ppassJSON"))),
-				false, null, logger); // We are already remembered, no need to remember again
+				false, null, conn, logger); // We are already remembered, no need to remember again
 	}
 	
 	// Constructor. Takes in a PPassNetwork instance, a username, a password, the binary keys stored in a ppass file,
 	// whether or not to create this user on the network, a string with the complete JSON dump of the ppass file if
 	// "remember me" mode is on or null if it isn't, and a logger instance.
-	public CachedUser(PPassNetwork ppass, String username, String masterpass, byte[] ppassFileContent, boolean createmode, String ppassFileJSON, Logger logger) throws Exception {
+	public CachedUser(PPassNetwork ppass, String username, String masterpass, byte[] ppassFileContent, boolean createmode,
+			String ppassFileJSON, Connection conn, Logger logger) throws Exception {
 		// Initialize user
 		super(ppass, username, masterpass, ppassFileContent, createmode, logger);
-		// Initialize connection and create tables if necessary
-		logger.log("Connecting to cache...");
-		connection = DriverManager.getConnection("jdbc:sqlite:PPassCache.db");
-		Statement createStatement = connection.createStatement();
-		createStatement.executeUpdate("CREATE TABLE IF NOT EXISTS accounts " + accountsTableStructure);
-		createStatement.executeUpdate("CREATE TABLE IF NOT EXISTS passwords " + passwordsTableStructure);
-		createStatement.executeUpdate("CREATE TABLE IF NOT EXISTS users " + usersTableStructure);
+		// Copy over connection
+		connection = conn;
 		// Create UID hash and copy over user
 		uidhash = runCRC(super.getUserHash());
 		// If remember is on, add this user to the users table

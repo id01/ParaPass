@@ -29,7 +29,10 @@ Passwords for the Paranoid
 * I still need a taskbar icon...
 
 ### Changelog
-* Version 0.1.0 (11/10/2018)
+* Version 0.1.1 (11/10/2018)
+	* Server selection
+	* Cross-platform configuration file paths
+* Version 0.1.0 (11/09/2018)
 	* Major UI overhaul
 	* Autologin "remember me" feature (not secure!)
 	* Dual-Factor Authentication - ".ppass" file (with keys encrypted using one time pad) required for login, keystore file no longer necessary. Also increases entropy of key.

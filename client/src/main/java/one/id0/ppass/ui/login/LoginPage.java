@@ -32,11 +32,13 @@ import com.jfoenix.controls.JFXTextField;
 import com.jfoenix.controls.JFXPasswordField;
 import com.jfoenix.controls.JFXButton;
 import com.jfoenix.controls.JFXCheckBox;
+import com.jfoenix.controls.JFXComboBox;
 import com.jfoenix.controls.JFXDialog;
 import com.jfoenix.controls.JFXDialogLayout;
 import com.jfoenix.controls.JFXSpinner;
 
 import one.id0.ppass.backend.Logger;
+import one.id0.ppass.backend.NodeSelector;
 import one.id0.ppass.backend.PPassBackend;
 import one.id0.ppass.ui.HoverTooltip;
 import one.id0.ppass.ui.Page;
@@ -48,6 +50,7 @@ public class LoginPage extends Page {
 	final private String ppassAddress = "0x24c08fb0f8fa924d49db9713034e26f3a358a7fa";
 	
 	// Class variables
+	private NodeSelector nodeSelector;
 	private enum FormMode {
 		LOGIN, CREATE, PPASS
 	}
@@ -82,6 +85,8 @@ public class LoginPage extends Page {
 	@FXML private JFXButton loginButton;
 	@FXML private JFXButton toggleCreateAccountButton;
 	@FXML private JFXCheckBox rememberMeCheckbox;
+	// Ethereum node combo box
+	@FXML private JFXComboBox<String> nodeComboBox;
 	
 	// Other global variables
 	private PPassBackend backend;
@@ -91,8 +96,19 @@ public class LoginPage extends Page {
 		// Initialize page and logger
 		super(stage, "LoginPage.fxml", "ParaPass - Login");
 		
+		// Initialize node selector and Ethereum node selector combo box
+		nodeSelector = new NodeSelector();
+		String lastUsedNode = nodeSelector.getLastUsedNode();
+		for (String node: nodeSelector.getNodes()) {
+			nodeComboBox.getItems().add(node);
+			if (node.equals(lastUsedNode)) {
+				nodeComboBox.getSelectionModel().select(node);
+			}
+		}
+		
 		// Load logo
 		logoImage.setImage(new Image("/icons/ParaPass.png"));
+		
 		
 		// Construct loading box
 		JFXSpinner loadingSpinner = new JFXSpinner();
@@ -164,7 +180,7 @@ public class LoginPage extends Page {
 		// Try logging in automatically
 		Platform.runLater(() -> {
 			try {
-				tryAutoLogin();
+				tryAutoLogin(nodeSelector.getLastUsedNode());
 			} catch (Exception e) {
 				System.out.println(e.getMessage());
 			}
@@ -173,23 +189,23 @@ public class LoginPage extends Page {
 	
 	// AUTOLOGIN FUNCTION
 	// This function attempts to log in automatically
-	public void tryAutoLogin() throws Exception {
+	public void tryAutoLogin(String lastUsedNode) throws Exception {
 		logger.log("Trying autologin...");
 		Task<Void> enterTask = new Task<Void>() {
 			@Override
 			public Void call() throws Exception {
-				backend = new PPassBackend(ppassAddress, logger);
+				backend = new PPassBackend(lastUsedNode, ppassAddress, logger);
 				return null;
 			}
 		};
 		// If this failed, log the error (using log, not logErr, as it doesn't show the back button).
-		// If it succeeds, move onto main page
+		// If it succeeds, move onto main page, saving our last used node on the wal
 		enterTask.setOnFailed(e->{
 			logger.log("Autologin failed: " + enterTask.getException().getMessage());
 		});
 		enterTask.setOnSucceeded(e->{
 			try {
-				new MainPage(stage, backend);
+				startMainPage();
 			} catch (IOException ee) {
 				logger.log("Autologin failed: " + ee.getMessage());
 			}
@@ -202,6 +218,9 @@ public class LoginPage extends Page {
 	@FXML protected void selectPPassFile(ActionEvent event) {
 		// Get ppass file path from user
 		FileChooser chooser = new FileChooser();
+		chooser.getExtensionFilters().addAll(
+				new FileChooser.ExtensionFilter("PPass File (.ppass)", "*.ppass")
+		);
 		chooser.setTitle("Select PPass File");
 		File file = chooser.showOpenDialog(new Stage());
 		if (file == null) { // User didn't pick anything
@@ -384,7 +403,8 @@ public class LoginPage extends Page {
 				@Override
 				public Void call() throws Exception {
 					backend = new PPassBackend(usernameInput.getText(), passwordInput.getText(), ppassFilePath,
-							ppassAddress, currentMode == FormMode.CREATE, rememberMeCheckbox.isSelected(), logger);
+							nodeComboBox.getValue(), ppassAddress, currentMode == FormMode.CREATE,
+							rememberMeCheckbox.isSelected(), logger);
 					return null;
 				}
 			};
@@ -394,7 +414,7 @@ public class LoginPage extends Page {
 			});
 			enterTask.setOnSucceeded(ee->{
 				try {
-					new MainPage(stage, backend);
+					startMainPage();
 				} catch (IOException eee) {
 					logger.logErr(eee.getMessage());
 				}
@@ -402,5 +422,12 @@ public class LoginPage extends Page {
 		}
 		// Launch task
 		new Thread(enterTask).start();
+	}
+	
+	// CHANGE PAGE FUNCTION
+	// Function to start main page, saving currently used node as the last used one on the way
+	public void startMainPage() throws IOException {
+		nodeSelector.setLastUsedNode(nodeComboBox.getValue());
+		new MainPage(stage, backend);
 	}
 }

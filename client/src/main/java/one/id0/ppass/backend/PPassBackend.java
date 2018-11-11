@@ -9,7 +9,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.math.BigInteger;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 
 import org.web3j.crypto.ECKeyPair;
 import org.web3j.crypto.Credentials;
@@ -31,17 +35,17 @@ import one.id0.ppass.utils.UserPassword;
 // Wrapper class for entire backend and CLI application
 public class PPassBackend {
 	// Constants
-	final static int versionNum = 0;
-	final static int pollInterval = 2000;
-	final static int pollCount = 1000;
-	final static String loginTempFileName = "/tmp/PPassLogin.tmp";
-	public final static int ppassFileVersion = 1;
+	public final static int versionNum = 0; // PPassNetwork version
+	private final static int pollInterval = 2000; // Web3 HTTP poll interval
+	private final static int pollCount = 1000; // Web3 HTTP max poll count
+	public final static int ppassFileVersion = 1; // PPass file version
 
 	// Class variables
 	private Web3j web3;
 	private Credentials credentials;
 	private PPassNetwork ppass;
 	private BigInteger gasPrice, maxGas;
+	private Connection dbConnection;
 	private CachedUser user;
 	private Logger logger;
 	
@@ -74,28 +78,49 @@ public class PPassBackend {
 		return content;
 	}
 	
-	// Autologin constructor chain function #1. Logs in using only the address of the PPassNetwork.
-	public PPassBackend(String address, Logger logger) throws Exception {
-		this(CachedUser.checkAutoLogin(), address, logger);
+	// Utility function that initializes a database connection
+	public static Connection initDatabaseConnection() throws IOException, SQLException {
+		Configuration.createConfig();
+		Connection conn = DriverManager.getConnection(Configuration.dbURI);
+		return conn;
 	}
 	
-	// Autologin constructor chain function #2.
-	public PPassBackend(ResultSet rs, String address, Logger logger) throws Exception {
-		this(rs.getString("username"), rs.getString("password"), new JSONObject(rs.getString("ppassJSON")), address, false, false, logger);
+	// Autologin constructor chain function #1. Logs in using only the URL of the node and the address of the PPassNetwork.
+	public PPassBackend(String node, String address, Logger logger) throws Exception {
+		this(initDatabaseConnection(), node, address, logger);
 	}
 	
-	// Easier-to-call constructor that takes the name of a ppass file instead of a JSON Object
-	public PPassBackend(String username, String password, String ppassFile, String address, boolean createUser, boolean remember, Logger logger) throws Exception {
-		this(username, password, new JSONObject(getFileContent(new File(ppassFile))), address, createUser, remember, logger);
+	// Autologin constructor chain function #2
+	public PPassBackend(Connection conn, String node, String address, Logger logger) throws Exception {
+		this(CachedUser.checkAutoLogin(conn), conn, node, address, logger);
+	}
+	
+	// Autologin constructor chain function #3 that calls the final constructor.
+	public PPassBackend(ResultSet rs, Connection conn, String node, String address, Logger logger) throws Exception {
+		this(rs.getString("username"), rs.getString("password"), new JSONObject(rs.getString("ppassJSON")), conn, node,
+				address, false, false, logger);
+	}
+	
+	// Easier-to-call constructor that takes the name of a ppass file instead of a JSON Object and doesn't need a Connection instance
+	// This is used for manual login.
+	public PPassBackend(String username, String password, String ppassFile, String node, String address,
+			boolean createUser, boolean remember, Logger logger) throws Exception {
+		this(username, password, new JSONObject(getFileContent(new File(ppassFile))), initDatabaseConnection(), node, address,
+				createUser, remember, logger);
 	}
 
 	// Constructor. Connects to or creates a PPassNetwork address, and also prepares other backends
 	// Takes in the username of the user, the password for the ppass file, the contents of the ppass file as a JSON object,
-	// the address of the ppass network (or NULL if creating one), whether to create a new user on the PPassNetwork,
+	// a database connection to the cache database, the URL of the Ethereum node to connect to, the address of the ppass
+	// network to connect to (or NULL if creating one), whether to create a new user on the PPassNetwork
 	// and a logger object for output.
-	public PPassBackend(String username, String password, JSONObject ppassFileObj, String address, boolean createUser, boolean remember, Logger logger) throws Exception {
+	public PPassBackend(String username, String password, JSONObject ppassFileObj, Connection conn, String node,
+			String address, boolean createUser, boolean remember, Logger logger) throws Exception {
 		// Copy over logger
 		this.logger = logger;
+		// Initialize DB connection
+		logger.log("Connecting to Database...");
+		dbConnection = conn;
 		// Set user to null for now
 		user = null;
 		// Parse PPass file
@@ -109,7 +134,7 @@ public class PPassBackend {
 		maxGas = BigInteger.valueOf(5000000);
 		// Initialize web3j
 		logger.log("Initializing backends...");
-		web3 = Web3j.build(new HttpService());
+		web3 = Web3j.build(new HttpService(node));
 		// Try decrypting credentials
 		try {
 			// Get key pair and create credentials object using that key pair
@@ -118,7 +143,6 @@ public class PPassBackend {
 		} catch (CipherException e) {
 			throw new Exception("Couldn't decrypt keystore!");
 		}
-		System.out.println(credentials);
 		// If address is null, we run the genesis constructor. Else, we run the connection constructor to that address.
 		FastRawTransactionManager tx_mgr = new FastRawTransactionManager(web3, credentials,
 				new PollingTransactionReceiptProcessor(web3, pollInterval, pollCount));
@@ -136,9 +160,9 @@ public class PPassBackend {
 		logger.log("Connected");
 		// Log in as user or create user with or without remembering
 		if (remember) {
-			user = new CachedUser(ppass, username, password, ppassFileContent, createUser, ppassFileObj.toString(), logger);
+			user = new CachedUser(ppass, username, password, ppassFileContent, createUser, ppassFileObj.toString(), dbConnection, logger);
 		} else {
-			user = new CachedUser(ppass, username, password, ppassFileContent, createUser, null, logger);
+			user = new CachedUser(ppass, username, password, ppassFileContent, createUser, null, dbConnection, logger);
 		}
 	}
 	
@@ -302,9 +326,9 @@ public class PPassBackend {
 					System.out.println("Done!");
 					System.exit(0);
 				} else if (args[4].equals("--genesis")) { // This option creates a new PPassNetwork on the blockchain
-					self = new PPassBackend(args[2], password, args[3], null, args[1].equals("create"), false, logger);
+					self = new PPassBackend(args[2], password, args[3], "localhost:8545", null, args[1].equals("create"), false, logger);
 				} else {
-					self = new PPassBackend(args[2], password, args[3], args[4], args[1].equals("create"), false, logger);
+					self = new PPassBackend(args[2], password, args[3], "localhost:8545", args[4], args[1].equals("create"), false, logger);
 				}
 			} else {
 				System.out.println("Usage: ./run [login|create] [username] [ppassFile] [contract address]\n" +

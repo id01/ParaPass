@@ -2,6 +2,7 @@
 
 <?import com.jfoenix.controls.JFXButton?>
 <?import com.jfoenix.controls.JFXCheckBox?>
+<?import com.jfoenix.controls.JFXComboBox?>
 <?import com.jfoenix.controls.JFXPasswordField?>
 <?import com.jfoenix.controls.JFXTextField?>
 <?import com.jfoenix.controls.JFXTogglePane?>
@@ -91,6 +92,7 @@
                <font>
                   <Font size="10.0" />
                </font></Text>
+            <JFXComboBox fx:id="nodeComboBox" promptText="Ether Node" styleClass="darkInput" AnchorPane.bottomAnchor="8.0" AnchorPane.rightAnchor="16.0" />
          </children>
       </AnchorPane>
    </children>
