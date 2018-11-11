@@ -3,6 +3,7 @@ package one.id0.ppass.ui;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.stage.Stage;
+import one.id0.ppass.systray.WindowMinimizer;
 import one.id0.ppass.ui.login.LoginPage;
 
 public class PPassUI extends Application {

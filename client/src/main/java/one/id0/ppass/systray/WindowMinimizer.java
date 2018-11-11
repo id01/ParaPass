@@ -1,4 +1,4 @@
-package one.id0.ppass.ui;
+package one.id0.ppass.systray;
 
 import java.applet.Applet;
 import java.awt.SystemTray;

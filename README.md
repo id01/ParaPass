@@ -32,6 +32,8 @@ Passwords for the Paranoid
 * Version 0.1.1 (11/10/2018)
 	* Server selection
 	* Cross-platform configuration file paths
+	* Moved past passwords to prompt
+	* Some minor build and configuration setting changes
 * Version 0.1.0 (11/09/2018)
 	* Major UI overhaul
 	* Autologin "remember me" feature (not secure!)

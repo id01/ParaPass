@@ -1,4 +1,4 @@
-package one.id0.ppass.ui.popup;
+package one.id0.ppass.ui.main;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -7,10 +7,8 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
-import javafx.fxml.FXML;
-import javafx.stage.Stage;
-//import javafx.scene.Scene;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.StackPane;
+import javafx.scene.text.Text;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeTableColumn;
 import javafx.scene.input.Clipboard;
@@ -23,25 +21,31 @@ import com.jfoenix.controls.RecursiveTreeItem;
 import com.jfoenix.controls.cells.editors.TextFieldEditorBuilder;
 import com.jfoenix.controls.cells.editors.base.GenericEditableTreeTableCell;
 import com.jfoenix.controls.datamodels.treetable.RecursiveTreeObject;
+import com.jfoenix.controls.JFXDialog;
+import com.jfoenix.controls.JFXDialogLayout;
 
-import one.id0.ppass.ui.Page;
+import one.id0.ppass.backend.Logger;
 import one.id0.ppass.utils.UserPassword;
 
-public class PastPasswordPage extends Page {
-	// FXML elements
-	@FXML private VBox containerBox;
-	@FXML private JFXButton copyButton;
-	@FXML private JFXTreeTableView<UserPassword> pastPasswordTable;
+public class PastPasswordDialog {
+	// JavaFX elements
+	private JFXDialog dialog;
+	private JFXButton backButton;
+	private JFXButton copyButton;
+	private JFXTreeTableView<UserPassword> pastPasswordTable;
 	
 	// Class variables
 	private TreeItem<UserPassword> passwordsRoot;
 	private UserPassword selectedPassword;
+	private Logger logger;
 	
-	public PastPasswordPage(Stage stage, ArrayList<UserPassword> passwords) throws IOException {
-		// Init page and logger
-		super(stage, "PastPasswordPage.fxml", "ParaPass - View Past Passwords");
+	public PastPasswordDialog(StackPane everythingPane, ArrayList<UserPassword> passwords, Logger logger) throws IOException {
+		// Init dialog
+		JFXDialogLayout dialogLayout = new JFXDialogLayout();
+		dialog = new JFXDialog(everythingPane, dialogLayout, JFXDialog.DialogTransition.CENTER);
+		dialogLayout.setHeading(new Text("Past Passwords"));
 
-		// Initialize pastPasswordTable columns
+		// Initialize pastPasswordTable
 		// Account name column
 		JFXTreeTableColumn<UserPassword, String> accountNameColumn = new JFXTreeTableColumn<UserPassword, String>("Account Name");
 		accountNameColumn.setCellValueFactory((TreeTableColumn.CellDataFeatures<UserPassword, String> param) -> {
@@ -77,12 +81,13 @@ public class PastPasswordPage extends Page {
 		try {
 			ObservableList<UserPassword> passwordObservable = FXCollections.observableArrayList(passwords);
 			passwordsRoot = new RecursiveTreeItem<UserPassword>(passwordObservable, RecursiveTreeObject::getChildren);
-			pastPasswordTable.setRoot(passwordsRoot);
-			pastPasswordTable.getColumns().setAll(accountNameColumn, timestampColumn, passwordColumn);
-			containerBox.getChildren().add(0, pastPasswordTable);
+			pastPasswordTable = new JFXTreeTableView<UserPassword>(passwordsRoot);
+			pastPasswordTable.getColumns().add(accountNameColumn);
+			pastPasswordTable.getColumns().add(timestampColumn);
+			pastPasswordTable.getColumns().add(passwordColumn);
+			pastPasswordTable.setShowRoot(false);
 			// Style searchTreeTable and add click event that changes value of currently
 			// selected account as well as UI elements about it
-			pastPasswordTable.getStyleClass().add("dark");
 			pastPasswordTable.getSelectionModel().selectedItemProperty().addListener((o, oldVal, newVal) -> {
 				if (newVal != null) {
 					// Change selectedPassword
@@ -95,15 +100,23 @@ public class PastPasswordPage extends Page {
 			// Do nothing. Our accountNameColumn won't be populated or added.
 			// The user will still have a semi-functional UI
 		}
+		// Add columns to body
+		dialogLayout.setBody(pastPasswordTable);
 		
-		// Show scene
-		stage.setTitle("ParaPass - View Past Passwords");
-		stage.setScene(scene);
+		// Construct two actions - one to copy password and one to go back
+		copyButton = new JFXButton("Copy Password");
+		backButton = new JFXButton("Back");
+		copyButton.setOnAction(e->copyPassword(e));
+		backButton.setOnAction(e->dialog.close());
+		// Add buttons to actions
+		dialogLayout.setActions(backButton, copyButton);
+		
+		// Copy over logger
+		this.logger = logger;
 	}
 	
-	// Triggered by "Copy Password" button
-	@FXML
-	protected void copyPassword(ActionEvent event) {
+	// Triggered by "Copy Password" button\
+	private void copyPassword(ActionEvent event) {
 		try {
 			if (selectedPassword != null) {
 				// Copy password onto clipboard
@@ -120,9 +133,8 @@ public class PastPasswordPage extends Page {
 		}
 	}
 	
-	// Triggered by "Back" button
-	@FXML
-	protected void closeStage(ActionEvent event) {
-		stage.close();
+	// Shows dialog
+	public void show() {
+		dialog.show();
 	}
 }

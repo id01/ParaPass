@@ -29,7 +29,6 @@ import one.id0.ppass.utils.UserPassword;
 import one.id0.ppass.ui.HoverTooltip;
 import one.id0.ppass.ui.Page;
 import one.id0.ppass.ui.popup.DescriptionPage;
-import one.id0.ppass.ui.popup.PastPasswordPage;
 
 public class MainPage extends Page {
 	// Class variables
@@ -124,13 +123,11 @@ public class MainPage extends Page {
 		}
 	}
 	
-	// Shows past passwords using a PastPasswordPage on a popup stage
+	// Shows past passwords using a PastPasswordPage
 	private void showPastPasswords(UserAccount account) {
 		try {
 			ArrayList<UserPassword> pastPasswords = backend.getPastPasswords(account.accountID);
-			Stage popupStage = new Stage();
-			new PastPasswordPage(popupStage, pastPasswords);
-			popupStage.show();
+			new PastPasswordDialog(everythingPane, pastPasswords, logger).show();
 		} catch (Exception e) {
 			logger.log("Failed to show past passwords: " + e.getMessage());
 		}
