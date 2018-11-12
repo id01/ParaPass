@@ -10,23 +10,20 @@ Passwords for the Paranoid
 * The cryptography backend is written in C++ for lighter weight and the rest is written with Java for eventual cross-platform portability.
 
 ### Build
-* Dependencies
+* C++ library Dependencies
 	* C libs including tweetnacl, argon2, and scrypt-jane
 	* CryptoPP
 	* Pthread
 	* JNI
-	* JavaFX, AWT
-	* Maven (will install other dependencies)
+* Ethereum Integration Dependencies
+	* Ethereum Solidity Compiler
+	* Web3j command line utils
 * Build
 	* Generate `PPassNetwork.java` by building `PPassNetwork.sol` with the `web3j` command. Put this in `client/src/gen/java/id0/ppass/gen/PPassNetwork.java`
 	* Download [argon2](https://github.com/P-H-C/phc-winner-argon2) and [scrypt-jane](https://github.com/floodyberry/scrypt-jane) from their respective repos and
 	put them in `client/src/main/cpp/libs`.
 	* Run `make` in `client` to build crypto binaries
 	* Run PPassBackend for CLI, or PPassUI for GUI via Java
-	* Note: WebExtension server can be disabled by changing JSONServer to NullServer
-
-### Todo
-* I still need a taskbar icon...
 
 ### Changelog
 * Version 0.1.1 (11/10/2018)
